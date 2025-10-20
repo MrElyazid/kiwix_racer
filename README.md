@@ -1,31 +1,37 @@
+# Kiwixracer :
 
-## Kiwixracer :
+A wikiracing game where the goal is to go from a wikipedia article X to another Y in the quickest way possible.
 
-Kiwixracer is a game where you need to go from a wikipedia article ( English wikipedia ) to another in the quickest way possible.
-we plan on making it a multiplayer game later ( using websockets ) if the developement for single play is successful.
+The game uses data from [Kiwix Library](https://library.kiwix.org/#lang=eng&category=wikipedia) and has three main features :
 
-## the plan :
+- Singleplayer : the user chooses a starting and a target article or just chooses them randomly and enters a game.
 
-we will use wikipedia archives from [kiwix](https://kiwix.org/en/) specifically at : [link](https://library.kiwix.org/#lang=eng&category=wikipedia) for the content, with a focus at the start on the `Wikipedia best 45000 articles` zim archive, ( we can easily add more archives later ) and serve the zim archives using a nodejs/express server using the `openzim/libzim` npm package.
+- Multiplayer : we will not work on it now but if the work goes smoothly we will use socket io for game room creation where multiple users can join the same game and race each other.
 
-but before telling the user to go from article X to article Y we need to make sure a path exists right?
-
-thats the hardest part of the project, for that, we will need to use official wikipedia dumps, Wikipedia offers sql dumps ( Mariadb ) at : https://dumps.wikimedia.org/enwiki/latest/ , the two files that interest us are : `https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pagelinks.sql.gz` which contains the internal links each wikipedia link contains, this file is 33gb after decompression... an sql table that is 33gb in size!!, and it doesnt contain article names, it contains article ids, this is why we need another file too : `https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-page.sql.gz` this one actually contains the articles titles and their IDs.
-
-the plan to tackle this is :
-- extract articles titles from the kiwix zim archive
-- filter the `enwiki-latest-page.sql` so that it only contains articles we care about
-- perform a sql `join` with the `latest-pagelinks.sql` so that we have all the links and relations between articles we have.
-
-once that is done we can easily generate paths between articles and make sure a path exists before suggesting it to the player.
-
-OR :
-
-in case that doesnt go as planned we can just hardcode paths that are sure to exist, for example go from `Messi` to `Maradona` .. etc
+- Explore : here the user can just explore the datasets/archives we are using, maybe visualize some algorithms ( visualizing a graph traversal algorithm would be interesting ), we will use most likely D3.js for this.
 
 
-## technologies to be used :
+## Implementation plan :
 
-- nodejs/expressjs
-- [bulma](https://bulma.io/) for the css
-- vuejs only if the frontend becomes complicated ( it probably wont )
+### Data preparation :
+
+- After downloading a ZIM archive from kiwix we will run two scripts to build a corresponding sqlite database that has metadata about all the articles in the archive and internal links contained in each one.
+
+
+Once we have the data the rest is simple :
+
+- use a nodejs/express server to serve the ZIM archives using the `openzim/libzim` npm package.
+- for path contsruction and visualisation we use the archive's sqlite database.
+- for the frontend we will use vuejs and [bulma](https://bulma.io/) for the css.
+- [D3.js](https://d3js.org/) for graph visualization
+- [p5.js](https://github.com/processing/p5.js) for animations if needed
+
+## Some resources :
+
+- [Kiwix](https://kiwix.org/en/)
+- [wikipedia official dumps](https://dumps.wikimedia.org/enwiki/latest/)
+- [six degrees of wikipedia](https://github.com/jwngr/sdow)
+- [A similar project](https://wiki-race.com/)
+
+
+
