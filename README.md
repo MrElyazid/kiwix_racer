@@ -10,13 +10,11 @@ The game uses data from [Kiwix Library](https://library.kiwix.org/#lang=eng&cate
 
 - Explore : here the user can just explore the datasets/archives we are using, maybe visualize some algorithms ( visualizing a graph traversal algorithm would be interesting ), we will use most likely D3.js for this.
 
-
 ## Implementation plan :
 
 ### Data preparation :
 
 - After downloading a ZIM archive from kiwix we will run two scripts to build a corresponding sqlite database that has metadata about all the articles in the archive and internal links contained in each one.
-
 
 Once we have the data the rest is simple :
 
@@ -33,5 +31,6 @@ Once we have the data the rest is simple :
 - [six degrees of wikipedia](https://github.com/jwngr/sdow)
 - [A similar project](https://wiki-race.com/)
 
-
+## PS :
+changes to the codebase over time are described in changelog.md (if you are a collaborator use it too).
 

@@ -1,3 +1,12 @@
+# Data directories - only track scripts, not generated data
+data/zim/*.zim
+data/json/*.json
+data/sqlite/*.db
+
+# Keep the scripts directory structure
+!data/scripts/
+
+
 # Logs
 logs
 *.log
