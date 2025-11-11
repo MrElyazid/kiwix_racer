@@ -2,7 +2,7 @@
 
 A wikiracing game where the goal is to go from a wikipedia article X to another Y in the quickest way possible.
 
-The game uses data from [Kiwix Library](https://library.kiwix.org/#lang=eng&category=wikipedia) and has three main features :
+The game uses wikipedia REST api for fetching the articles and a modern build of the [six degrees of wikipedia](https://github.com/jwngr/sdow) database for visualization and path finiding.
 
 - Singleplayer : the user chooses a starting and a target article or just chooses them randomly and enters a game.
 
@@ -14,11 +14,14 @@ The game uses data from [Kiwix Library](https://library.kiwix.org/#lang=eng&cate
 
 ### Data preparation :
 
-- After downloading a ZIM archive from kiwix we will run two scripts to build a corresponding sqlite database that has metadata about all the articles in the archive and internal links contained in each one.
+- ~~After downloading a ZIM archive from kiwix we will run two scripts to build a corresponding sqlite database that has metadata about all the articles in the archive and internal links contained in each one~~.
+
+- we will just use the wikipedia REST api for serving the articles instead :-)
 
 Once we have the data the rest is simple :
 
-- use a nodejs/express server to serve the ZIM archives using the `openzim/libzim` npm package.
+- ~~use a nodejs/express server to serve the ZIM archives using the `openzim/libzim` npm package.~~
+
 - for path contsruction and visualisation we use the archive's sqlite database.
 - for the frontend we will use vuejs and [bulma](https://bulma.io/) for the css.
 - [D3.js](https://d3js.org/) for graph visualization
@@ -26,10 +29,56 @@ Once we have the data the rest is simple :
 
 ## Some resources :
 
-- [Kiwix](https://kiwix.org/en/)
+
 - [wikipedia official dumps](https://dumps.wikimedia.org/enwiki/latest/)
 - [six degrees of wikipedia](https://github.com/jwngr/sdow)
+- [Kiwix](https://kiwix.org/en/)
 - [A similar project](https://wiki-race.com/)
+
+
+# Notes about the sdow database :
+
+## Tables
+
+### pages
+
+| Column      | Type       | Description                             |
+| ----------- | ---------- | --------------------------------------- |
+| id          | INTEGER PK | Page ID                                 |
+| title       | TEXT       | Article title (e.g., `Albert_Einstein`) |
+| is_redirect | INTEGER    | 0=article, 1=redirect                   |
+
+### links
+
+| Column               | Type       | Description                           |
+| -------------------- | ---------- | ------------------------------------- |
+| id                   | INTEGER PK | Page ID (FK to pages.id)              |
+| outgoing_links_count | INTEGER    | Count of outgoing links               |
+| incoming_links_count | INTEGER    | Count of incoming links               |
+| outgoing_links       | TEXT       | Pipe-separated IDs: `"123\|456\|789"` |
+| incoming_links       | TEXT       | Pipe-separated IDs: `"321\|654\|987"` |
+
+### redirects
+
+| Column    | Type       | Description      |
+| --------- | ---------- | ---------------- |
+| source_id | INTEGER PK | Redirect page ID |
+| target_id | INTEGER    | Target page ID   |
+
+**Bidirectional BFS:**
+
+- Search from both source and target
+- Forward: uses `outgoing_links`
+- Backward: uses `incoming_links`
+- Meet in the middle
+
+**Path Reconstruction:**
+
+1. Meeting point found
+2. Trace back to source via sourceParents
+3. Trace forward to target via targetParents
+4. Concatenate both paths
+
 
 ## PS :
 changes to the codebase over time are described in changelog.md (if you are a collaborator use it too).

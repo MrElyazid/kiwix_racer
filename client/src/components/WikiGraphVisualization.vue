@@ -1,0 +1,826 @@
+<template>
+  <div class="graph-visualization">
+    <!-- Compact Control Panel Overlay -->
+    <div class="control-panel" :class="{ collapsed: isPanelCollapsed }">
+      <div class="panel-header">
+        <h3 class="panel-title">Graph Controls</h3>
+        <button
+          @click="isPanelCollapsed = !isPanelCollapsed"
+          class="toggle-btn"
+        >
+          {{ isPanelCollapsed ? "▼" : "▲" }}
+        </button>
+      </div>
+
+      <div v-if="!isPanelCollapsed" class="panel-content">
+        <!-- Search Section -->
+        <div class="control-section">
+          <div class="search-box">
+            <input
+              v-model="searchQuery"
+              @input="searchArticles"
+              type="text"
+              placeholder="Search articles..."
+              class="search-input"
+            />
+          </div>
+
+          <div v-if="searchResults.length > 0" class="search-results">
+            <div
+              v-for="result in searchResults"
+              :key="result.id"
+              @click="selectArticle(result)"
+              class="search-result-item"
+            >
+              {{ result.title }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Selected Articles -->
+        <div v-if="selectedSource || selectedTarget" class="control-section">
+          <div class="selected-articles">
+            <div v-if="selectedSource" class="selected-item source">
+              <span class="label">From:</span>
+              <span class="value">{{ selectedSource.title }}</span>
+              <button @click="selectedSource = null" class="btn-remove">
+                ×
+              </button>
+            </div>
+            <div v-if="selectedTarget" class="selected-item target">
+              <span class="label">To:</span>
+              <span class="value">{{ selectedTarget.title }}</span>
+              <button @click="selectedTarget = null" class="btn-remove">
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="control-section">
+          <div class="action-grid">
+            <button
+              @click="findPath"
+              :disabled="!canFindPath || isLoading"
+              class="btn-action btn-primary"
+              title="Find shortest path between selected articles"
+            >
+              {{ isLoading ? "Finding..." : "Find Path" }}
+            </button>
+            <button
+              @click="buildGraph"
+              :disabled="!selectedSource || isLoading"
+              class="btn-action btn-secondary"
+              title="Build graph from selected article"
+            >
+              {{ isLoading ? "Building..." : "Build Graph" }}
+            </button>
+            <button
+              @click="getRandomAndBuildGraph"
+              :disabled="isLoading"
+              class="btn-action btn-secondary"
+              title="Get random article and build its graph"
+            >
+              Random
+            </button>
+            <button
+              @click="centerView"
+              class="btn-action btn-secondary"
+              title="Reset view to center"
+            >
+              Center View
+            </button>
+            <button @click="clearVisualization" class="btn-action btn-clear">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div class="control-section">
+          <div v-if="error" class="message error">{{ error }}</div>
+          <div v-if="pathInfo" class="message success">
+            Path found! <strong>{{ pathInfo.degrees }}</strong> degrees ({{
+              pathInfo.duration_ms
+            }}ms)
+          </div>
+          <div v-if="graphInfo" class="message info">
+            <strong>{{ graphInfo.node_count }}</strong> nodes ·
+            <strong>{{ graphInfo.link_count }}</strong> links
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Graph Container -->
+    <div ref="graphContainer" class="graph-container"></div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import * as d3 from "d3";
+import { useGraphVisualization } from "@/composables/useGraphVisualization";
+
+const graphContainer = ref(null);
+const searchQuery = ref("");
+const selectedSource = ref(null);
+const selectedTarget = ref(null);
+const isPanelCollapsed = ref(false);
+
+const {
+  nodes,
+  links,
+  path,
+  searchResults,
+  isLoading,
+  error,
+  pathInfo,
+  graphInfo,
+  buildGraph: buildGraphAPI,
+  findPath: findPathAPI,
+  searchArticles: searchArticlesAPI,
+  getRandomArticle,
+  clearGraph,
+  clearPath,
+} = useGraphVisualization();
+
+let simulation = null;
+let svg = null;
+let g = null;
+let linkElements = null;
+let nodeElements = null;
+let labelElements = null;
+let searchTimeout = null;
+
+const canFindPath = computed(
+  () => selectedSource.value && selectedTarget.value
+);
+
+const searchArticles = async () => {
+  // Clear previous timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+
+  // If search is empty, clear results
+  if (!searchQuery.value.trim()) {
+    searchResults.value = [];
+    return;
+  }
+
+  // Debounce search by 300ms
+  searchTimeout = setTimeout(async () => {
+    await searchArticlesAPI(searchQuery.value);
+  }, 300);
+};
+
+const selectArticle = (article) => {
+  if (!selectedSource.value) {
+    selectedSource.value = article;
+  } else if (!selectedTarget.value) {
+    selectedTarget.value = article;
+  } else {
+    selectedSource.value = article;
+    selectedTarget.value = null;
+  }
+  searchQuery.value = "";
+  searchResults.value = [];
+};
+
+const findPath = async () => {
+  if (!canFindPath.value) return;
+  await findPathAPI(selectedSource.value.title, selectedTarget.value.title);
+};
+
+const buildGraph = async () => {
+  if (!selectedSource.value) return;
+  await buildGraphAPI(selectedSource.value.title, 2, 100);
+};
+
+const getRandomAndBuildGraph = async () => {
+  const article = await getRandomArticle();
+  if (article) {
+    selectedSource.value = article;
+    await buildGraphAPI(article.title, 2, 100);
+  }
+};
+
+const clearVisualization = () => {
+  clearGraph();
+  clearPath();
+  selectedSource.value = null;
+  selectedTarget.value = null;
+  searchQuery.value = "";
+  if (svg) {
+    svg.selectAll("*").remove();
+  }
+};
+
+const centerView = () => {
+  if (!svg || !graphContainer.value) return;
+
+  const width = graphContainer.value.clientWidth;
+  const height = graphContainer.value.clientHeight;
+
+  // Reset zoom to center
+  svg
+    .transition()
+    .duration(750)
+    .call(d3.zoom().transform, d3.zoomIdentity.translate(0, 0).scale(1));
+
+  // Restart simulation to re-center nodes
+  if (simulation) {
+    simulation.force("center", d3.forceCenter(width / 2, height / 2));
+    simulation.alpha(0.3).restart();
+  }
+};
+
+const initVisualization = () => {
+  if (!graphContainer.value) return;
+
+  const width = graphContainer.value.clientWidth;
+  const height = graphContainer.value.clientHeight;
+
+  svg = d3
+    .select(graphContainer.value)
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .attr("viewBox", [0, 0, width, height]);
+
+  // Define arrow markers
+  const defs = svg.append("defs");
+
+  // Regular arrow marker
+  defs
+    .append("marker")
+    .attr("id", "arrowhead")
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 20)
+    .attr("refY", 0)
+    .attr("markerWidth", 4)
+    .attr("markerHeight", 4)
+    .attr("orient", "auto")
+    .append("path")
+    .attr("d", "M0,-5L10,0L0,5")
+    .attr("fill", "#999");
+
+  // Path arrow marker (highlighted)
+  defs
+    .append("marker")
+    .attr("id", "arrowhead-path")
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 20)
+    .attr("refY", 0)
+    .attr("markerWidth", 5)
+    .attr("markerHeight", 5)
+    .attr("orient", "auto")
+    .append("path")
+    .attr("d", "M0,-5L10,0L0,5")
+    .attr("fill", "#ff6b6b");
+
+  g = svg.append("g");
+
+  // Add zoom behavior
+  const zoom = d3
+    .zoom()
+    .scaleExtent([0.1, 4])
+    .on("zoom", (event) => {
+      g.attr("transform", event.transform);
+    });
+
+  svg.call(zoom);
+
+  // Create simulation
+  simulation = d3
+    .forceSimulation()
+    .force(
+      "link",
+      d3
+        .forceLink()
+        .id((d) => d.id)
+        .distance(100)
+    )
+    .force("charge", d3.forceManyBody().strength(-300))
+    .force("center", d3.forceCenter(width / 2, height / 2))
+    .force("collision", d3.forceCollide().radius(30));
+};
+
+const updateVisualization = () => {
+  if (!svg || !g || nodes.value.length === 0) return;
+
+  // Update links
+  const linkSelection = g
+    .selectAll(".link")
+    .data(
+      links.value,
+      (d) => `${d.source.id || d.source}-${d.target.id || d.target}`
+    );
+
+  linkSelection.exit().remove();
+
+  linkElements = linkSelection
+    .enter()
+    .append("line")
+    .attr("class", "link")
+    .attr("stroke", (d) => {
+      const pathIds = new Set(path.value);
+      const sourceId = d.source.id || d.source;
+      const targetId = d.target.id || d.target;
+      return pathIds.has(sourceId) && pathIds.has(targetId)
+        ? "#ff6b6b"
+        : "#999";
+    })
+    .attr("stroke-width", (d) => {
+      const pathIds = new Set(path.value);
+      const sourceId = d.source.id || d.source;
+      const targetId = d.target.id || d.target;
+      return pathIds.has(sourceId) && pathIds.has(targetId) ? 3 : 1;
+    })
+    .attr("stroke-opacity", 0.6)
+    .attr("marker-end", (d) => {
+      const pathIds = new Set(path.value);
+      const sourceId = d.source.id || d.source;
+      const targetId = d.target.id || d.target;
+      return pathIds.has(sourceId) && pathIds.has(targetId)
+        ? "url(#arrowhead-path)"
+        : "url(#arrowhead)";
+    })
+    .merge(linkSelection);
+
+  // Update nodes
+  const nodeSelection = g.selectAll(".node").data(nodes.value, (d) => d.id);
+
+  nodeSelection.exit().remove();
+
+  const nodeEnter = nodeSelection
+    .enter()
+    .append("circle")
+    .attr("class", "node")
+    .attr("r", (d) => {
+      if (selectedSource.value && d.id === selectedSource.value.id) return 12;
+      if (selectedTarget.value && d.id === selectedTarget.value.id) return 12;
+      return 8;
+    })
+    .attr("fill", (d) => {
+      const pathIds = new Set(path.value);
+      if (pathIds.has(d.id)) return "#ff6b6b";
+      if (selectedSource.value && d.id === selectedSource.value.id)
+        return "#4CAF50";
+      if (selectedTarget.value && d.id === selectedTarget.value.id)
+        return "#2196F3";
+      return "#69b3a2";
+    })
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 2)
+    .call(
+      d3
+        .drag()
+        .on("start", dragStarted)
+        .on("drag", dragged)
+        .on("end", dragEnded)
+    )
+    .on("click", (event, d) => {
+      // Open Wikipedia article in new tab
+      const articleTitle = encodeURIComponent(d.title.replace(/ /g, "_"));
+      const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
+      window.open(url, "_blank");
+    });
+
+  nodeElements = nodeEnter.merge(nodeSelection);
+
+  // Update labels
+  const labelSelection = g.selectAll(".label").data(nodes.value, (d) => d.id);
+
+  labelSelection.exit().remove();
+
+  const labelEnter = labelSelection
+    .enter()
+    .append("text")
+    .attr("class", "label")
+    .attr("text-anchor", "middle")
+    .attr("dy", -15)
+    .attr("font-size", "12px")
+    .attr("fill", "#333")
+    .style("cursor", "pointer")
+    .text((d) => d.title)
+    .on("click", (event, d) => {
+      // Open Wikipedia article in new tab
+      const articleTitle = encodeURIComponent(d.title.replace(/ /g, "_"));
+      const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
+      window.open(url, "_blank");
+    });
+
+  labelElements = labelEnter.merge(labelSelection);
+
+  // Update simulation
+  simulation.nodes(nodes.value);
+  simulation.force("link").links(links.value);
+  simulation.alpha(1).restart();
+
+  simulation.on("tick", () => {
+    linkElements
+      .attr("x1", (d) => d.source.x)
+      .attr("y1", (d) => d.source.y)
+      .attr("x2", (d) => d.target.x)
+      .attr("y2", (d) => d.target.y);
+
+    nodeElements.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+
+    labelElements.attr("x", (d) => d.x).attr("y", (d) => d.y);
+  });
+};
+
+const dragStarted = (event, d) => {
+  if (!event.active) simulation.alphaTarget(0.3).restart();
+  d.fx = d.x;
+  d.fy = d.y;
+};
+
+const dragged = (event, d) => {
+  d.fx = event.x;
+  d.fy = event.y;
+};
+
+const dragEnded = (event, d) => {
+  if (!event.active) simulation.alphaTarget(0);
+  d.fx = null;
+  d.fy = null;
+};
+
+// Watch for changes in graph data
+watch(
+  [nodes, links, path],
+  () => {
+    updateVisualization();
+  },
+  { deep: true }
+);
+
+onMounted(() => {
+  initVisualization();
+});
+
+onBeforeUnmount(() => {
+  if (simulation) {
+    simulation.stop();
+  }
+});
+</script>
+
+<style scoped>
+.graph-visualization {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  background: #fafafa;
+}
+
+/* Compact Control Panel Overlay */
+.control-panel {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 320px;
+  max-height: calc(100vh - 200px);
+  background: rgba(255, 255, 255, 0.98);
+  border: 2px solid #c2e2fa;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.control-panel.collapsed {
+  max-height: 60px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #c2e2fa 0%, #a8d5f7 100%);
+  border-bottom: 2px solid #c2e2fa;
+  cursor: pointer;
+}
+
+.panel-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.toggle-btn {
+  background: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-btn:hover {
+  background: #f0f0f0;
+  transform: scale(1.1);
+}
+
+.panel-content {
+  padding: 1rem;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+}
+
+.control-section {
+  margin-bottom: 1rem;
+}
+
+.control-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Search Box */
+.search-box {
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid #c2e2fa;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #ff8f8f;
+  box-shadow: 0 0 0 3px rgba(255, 143, 143, 0.1);
+}
+
+/* Search Results */
+.search-results {
+  max-height: 180px;
+  overflow-y: auto;
+  background: white;
+  border: 2px solid #c2e2fa;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.search-result-item {
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.search-result-item:last-child {
+  border-bottom: none;
+}
+
+.search-result-item:hover {
+  background: #c2e2fa;
+  color: #1a1a1a;
+}
+
+/* Selected Articles */
+.selected-articles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  background: white;
+  border: 2px solid #c2e2fa;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.selected-item.source {
+  border-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.selected-item.target {
+  border-color: #2196f3;
+  background: #f1f7fc;
+}
+
+.selected-item .label {
+  font-weight: 700;
+  color: #666;
+  min-width: 40px;
+}
+
+.selected-item .value {
+  flex: 1;
+  font-weight: 500;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-remove {
+  background: #ff8f8f;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-remove:hover {
+  background: #ff6b6b;
+  transform: scale(1.1);
+}
+
+/* Action Buttons */
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.btn-action {
+  padding: 0.6rem 0.8rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-action.btn-primary {
+  background: #4caf50;
+  color: white;
+  grid-column: 1 / -1;
+}
+
+.btn-action.btn-primary:hover:not(:disabled) {
+  background: #45a049;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.btn-action.btn-secondary {
+  background: #c2e2fa;
+  color: #1a1a1a;
+}
+
+.btn-action.btn-secondary:hover:not(:disabled) {
+  background: #a8d5f7;
+  transform: translateY(-2px);
+}
+
+.btn-action.btn-clear {
+  background: #ff8f8f;
+  color: white;
+}
+
+.btn-action.btn-clear:hover {
+  background: #ff6b6b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(255, 143, 143, 0.3);
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Status Messages */
+.message {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin-bottom: 0.5rem;
+  animation: slideIn 0.3s ease;
+}
+
+.message:last-child {
+  margin-bottom: 0;
+}
+
+.message.error {
+  background: #ffebee;
+  color: #c62828;
+  border: 2px solid #ef5350;
+}
+
+.message.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 2px solid #4caf50;
+}
+
+.message.info {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 2px solid #c2e2fa;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fullscreen Graph Container */
+.graph-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: white;
+}
+
+/* D3 Graph Elements */
+.link {
+  pointer-events: none;
+}
+
+.node {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.node:hover {
+  filter: brightness(1.2);
+  stroke-width: 3px;
+}
+
+.label {
+  pointer-events: all;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 500;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.label:hover {
+  font-weight: 700;
+  fill: #1a1a1a;
+}
+
+/* Scrollbar Styling */
+.panel-content::-webkit-scrollbar,
+.search-results::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track,
+.search-results::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb,
+.search-results::-webkit-scrollbar-thumb {
+  background: #c2e2fa;
+  border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb:hover,
+.search-results::-webkit-scrollbar-thumb:hover {
+  background: #a8d5f7;
+}
+</style>

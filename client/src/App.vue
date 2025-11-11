@@ -1,6 +1,11 @@
 <template>
   <div id="app">
-    <nav class="navbar is-transparent" role="navigation" aria-label="main navigation">
+    <nav
+      v-if="!hideNavbar"
+      class="navbar is-transparent"
+      role="navigation"
+      aria-label="main navigation"
+    >
       <div class="container">
         <div class="navbar-brand">
           <router-link to="/" class="navbar-item">
@@ -21,13 +26,19 @@
     </nav>
 
     <main>
-      <RouterView />
+      <RouterView
+        @game-started="hideNavbar = true"
+        @game-ended="hideNavbar = false"
+      />
     </main>
   </div>
 </template>
 
 <script setup>
+import { ref } from "vue";
 import { RouterView } from "vue-router";
+
+const hideNavbar = ref(false);
 </script>
 
 <style>
@@ -38,7 +49,19 @@ import { RouterView } from "vue-router";
 .navbar.is-transparent {
   background-color: rgba(255, 255, 255, 0.9) !important;
   backdrop-filter: blur(10px);
-  border-bottom: 2px solid #C2E2FA;
+  border-bottom: 2px solid #c2e2fa;
+}
+
+.navbar-item {
+  font-size: 1.1rem;
+  font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto,
+    sans-serif;
+}
+
+.navbar-brand .navbar-item strong {
+  font-size: 1.3rem;
+  font-weight: 800;
 }
 
 .navbar-item:hover {
