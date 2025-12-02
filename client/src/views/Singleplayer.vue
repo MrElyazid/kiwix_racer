@@ -71,6 +71,8 @@
 <script setup>
 import { ref, computed } from "vue";
 import axios from "axios";
+import { useLanguageStore } from "@/stores/language";
+import { storeToRefs } from "pinia";
 import P5Background from "../components/P5Background.vue";
 import GameInfoBar from "../components/singleplayer/GameInfoBar.vue";
 import GameSetup from "../components/singleplayer/GameSetup.vue";
@@ -78,6 +80,10 @@ import ArticleViewer from "../components/singleplayer/ArticleViewer.vue";
 import GameNotification from "../components/singleplayer/GameNotification.vue";
 
 const emit = defineEmits(["game-started", "game-ended"]);
+
+// Get language from store
+const languageStore = useLanguageStore();
+const { currentLanguage } = storeToRefs(languageStore);
 
 const gameStarted = ref(false);
 const startArticle = ref("");
@@ -158,7 +164,8 @@ async function searchStartArticles() {
   searchTimeout = setTimeout(async () => {
     try {
       loadingStart.value = true;
-      const response = await axios.get(`https://en.wikipedia.org/w/api.php`, {
+      const wikiLang = currentLanguage.value === 'fr' ? 'fr' : 'en';
+      const response = await axios.get(`https://${wikiLang}.wikipedia.org/w/api.php`, {
         params: {
           action: "opensearch",
           search: startArticle.value,
@@ -192,7 +199,8 @@ async function searchTargetArticles() {
   searchTimeout = setTimeout(async () => {
     try {
       loadingTarget.value = true;
-      const response = await axios.get(`https://en.wikipedia.org/w/api.php`, {
+      const wikiLang = currentLanguage.value === 'fr' ? 'fr' : 'en';
+      const response = await axios.get(`https://${wikiLang}.wikipedia.org/w/api.php`, {
         params: {
           action: "opensearch",
           search: targetArticle.value,
@@ -230,7 +238,8 @@ function selectTargetArticle(article) {
 async function getRandomStart() {
   loadingStart.value = true;
   try {
-    const response = await axios.get(`https://en.wikipedia.org/w/api.php`, {
+    const wikiLang = currentLanguage.value === 'fr' ? 'fr' : 'en';
+    const response = await axios.get(`https://${wikiLang}.wikipedia.org/w/api.php`, {
       params: {
         action: "query",
         list: "random",
@@ -254,7 +263,8 @@ async function getRandomStart() {
 async function getRandomTarget() {
   loadingTarget.value = true;
   try {
-    const response = await axios.get(`https://en.wikipedia.org/w/api.php`, {
+    const wikiLang = currentLanguage.value === 'fr' ? 'fr' : 'en';
+    const response = await axios.get(`https://${wikiLang}.wikipedia.org/w/api.php`, {
       params: {
         action: "query",
         list: "random",
@@ -311,30 +321,19 @@ async function loadArticle(path, isInitialLoad = false) {
     currentArticlePath.value = path;
 
     const articleName = path.replace(/ /g, "_");
+    
+    // Use the backend API with language parameter
     const response = await axios.get(
-      `https://en.wikipedia.org/api/rest_v1/page/html/${encodeURIComponent(
-        articleName
-      )}`
+      `http://localhost:3000/api/article/${encodeURIComponent(articleName)}`,
+      {
+        params: {
+          lang: currentLanguage.value
+        }
+      }
     );
 
     currentArticleTitle.value = path.replace(/_/g, " ");
-
-    let cleanedHtml = response.data;
-    cleanedHtml = cleanedHtml.replace(/src="\/\//g, 'src="https://');
-    cleanedHtml = cleanedHtml.replace(
-      /src="\//g,
-      'src="https://en.wikipedia.org/'
-    );
-    cleanedHtml = cleanedHtml.replace(/href="\/\//g, 'href="https://');
-    cleanedHtml = cleanedHtml.replace(/srcset="\/\//g, 'srcset="https://');
-    cleanedHtml = cleanedHtml.replace(
-      /srcset="\//g,
-      'srcset="https://en.wikipedia.org/'
-    );
-    cleanedHtml = cleanedHtml.replace(/<link[^>]*>/gi, "");
-    cleanedHtml = cleanedHtml.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-
-    currentArticleContent.value = cleanedHtml;
+    currentArticleContent.value = response.data;
 
     if (!isInitialLoad && gameStarted.value) {
       if (currentHistoryIndex.value < navigationHistory.value.length - 1) {
