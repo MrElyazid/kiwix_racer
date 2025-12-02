@@ -3,7 +3,7 @@
     <div v-if="show" class="modal-overlay" @click="handleOverlayClick">
       <div class="modal-content" @click.stop>
         <div class="modal-header" :class="headerClass">
-          <span class="modal-icon">{{ icon }}</span>
+          
           <h2 class="modal-title">{{ title }}</h2>
         </div>
 

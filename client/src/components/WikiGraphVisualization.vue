@@ -17,8 +17,8 @@
         <div class="control-section">
           <div class="search-box">
             <input
-              v-model="searchQuery"
-              @input="searchArticles"
+              :value="searchQuery"
+              @input="onSearchInput"
               type="text"
               placeholder="Search articles..."
               class="search-input"
@@ -119,7 +119,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import * as d3 from "d3";
 import { useGraphVisualization } from "@/composables/useGraphVisualization";
 
@@ -174,6 +174,37 @@ const searchArticles = async () => {
   searchTimeout = setTimeout(async () => {
     await searchArticlesAPI(searchQuery.value);
   }, 300);
+};
+
+// New: polite input handler that replaces spaces with underscores
+const onSearchInput = (e) => {
+  const el = e.target;
+  const old = el.value;
+  const caretPos = el.selectionStart;
+
+  // Replace any whitespace sequence with a single underscore
+  const newVal = old.replace(/\s+/g, "_");
+
+  if (newVal !== old) {
+    // Update the reactive value
+    searchQuery.value = newVal;
+
+    // After DOM update, reposition caret to account for replacement
+    nextTick(() => {
+      const diff = newVal.length - old.length;
+      const newPos = Math.max(0, caretPos + diff);
+      try {
+        el.setSelectionRange(newPos, newPos);
+      } catch (err) {
+        // ignore if element not focusable
+      }
+    });
+  } else {
+    searchQuery.value = newVal;
+  }
+
+  // Trigger the (debounced) search using the updated value
+  searchArticles();
 };
 
 const selectArticle = (article) => {
@@ -402,7 +433,7 @@ const updateVisualization = () => {
     .attr("class", "label")
     .attr("text-anchor", "middle")
     .attr("dy", -15)
-    .attr("font-size", "12px")
+    .attr("font-size", "6px")
     .attr("fill", "#333")
     .style("cursor", "pointer")
     .text((d) => d.title)
@@ -792,7 +823,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   user-select: none;
   font-weight: 500;
-  font-size: 12px;
+  font-size: 6px;
   transition: all 0.2s;
 }
 

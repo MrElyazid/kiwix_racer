@@ -12,6 +12,7 @@
             <strong>Kiwix Racer</strong>
           </router-link>
         </div>
+        <p class="navbar-item">Language : <strong>{{ currentLanguage }}</strong></p>
 
         <div class="navbar-menu">
           <div class="navbar-end">
@@ -37,8 +38,14 @@
 <script setup>
 import { ref } from "vue";
 import { RouterView } from "vue-router";
+import { useLanguageStore } from "@/stores/language";
+import { storeToRefs } from "pinia";
 
 const hideNavbar = ref(false);
+
+// Pinia language store
+const languageStore = useLanguageStore();
+const { currentLanguage } = storeToRefs(languageStore);
 </script>
 
 <style>
