@@ -14,13 +14,9 @@ The game uses wikipedia REST api for fetching the articles and a modern build of
 
 ### Data preparation :
 
-- ~~After downloading a ZIM archive from kiwix we will run two scripts to build a corresponding sqlite database that has metadata about all the articles in the archive and internal links contained in each one~~.
-
-- we will just use the wikipedia REST api for serving the articles instead :-)
+- we will just use the wikipedia REST api for serving the articles
 
 Once we have the data the rest is simple :
-
-- ~~use a nodejs/express server to serve the ZIM archives using the `openzim/libzim` npm package.~~
 
 - for path contsruction and visualisation we use the archive's sqlite database.
 - for the frontend we will use vuejs and [bulma](https://bulma.io/) for the css.
@@ -32,7 +28,6 @@ Once we have the data the rest is simple :
 
 - [wikipedia official dumps](https://dumps.wikimedia.org/enwiki/latest/)
 - [six degrees of wikipedia](https://github.com/jwngr/sdow)
-- [Kiwix](https://kiwix.org/en/)
 - [A similar project](https://wiki-race.com/)
 
 
