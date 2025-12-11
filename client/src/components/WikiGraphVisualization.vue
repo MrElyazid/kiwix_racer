@@ -245,7 +245,27 @@ const clearVisualization = () => {
   selectedTarget.value = null;
   searchQuery.value = "";
   if (svg) {
-    svg.selectAll("*").remove();
+    try {
+      svg.remove();
+    } catch (err) {
+    }
+    svg = null;
+    g = null;
+    linkElements = null;
+    nodeElements = null;
+    labelElements = null;
+
+    if (simulation) {
+      try {
+        simulation.stop();
+      } catch (err) {
+      }
+      simulation = null;
+    }
+
+    nextTick(() => {
+      initVisualization();
+    });
   }
 };
 
