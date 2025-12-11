@@ -435,7 +435,8 @@ const updateVisualization = () => {
     )
     .on("click", (event, d) => {
       // Open Wikipedia article in new tab
-      const articleTitle = encodeURIComponent(d.title.replace(/ /g, "_"));
+      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
+      const articleTitle = encodeURIComponent( clean(d.title).replace(/ /g, "_"));
       const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
       window.open(url, "_blank");
     });
@@ -459,7 +460,8 @@ const updateVisualization = () => {
     .text((d) => d.title)
     .on("click", (event, d) => {
       // Open Wikipedia article in new tab
-      const articleTitle = encodeURIComponent(d.title.replace(/ /g, "_"));
+      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
+      const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
       const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
       window.open(url, "_blank");
     });
