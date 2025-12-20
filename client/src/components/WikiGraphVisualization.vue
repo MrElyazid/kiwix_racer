@@ -245,7 +245,27 @@ const clearVisualization = () => {
   selectedTarget.value = null;
   searchQuery.value = "";
   if (svg) {
-    svg.selectAll("*").remove();
+    try {
+      svg.remove();
+    } catch (err) {
+    }
+    svg = null;
+    g = null;
+    linkElements = null;
+    nodeElements = null;
+    labelElements = null;
+
+    if (simulation) {
+      try {
+        simulation.stop();
+      } catch (err) {
+      }
+      simulation = null;
+    }
+
+    nextTick(() => {
+      initVisualization();
+    });
   }
 };
 
@@ -415,7 +435,8 @@ const updateVisualization = () => {
     )
     .on("click", (event, d) => {
       // Open Wikipedia article in new tab
-      const articleTitle = encodeURIComponent(d.title.replace(/ /g, "_"));
+      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
+      const articleTitle = encodeURIComponent( clean(d.title).replace(/ /g, "_"));
       const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
       window.open(url, "_blank");
     });
@@ -439,7 +460,8 @@ const updateVisualization = () => {
     .text((d) => d.title)
     .on("click", (event, d) => {
       // Open Wikipedia article in new tab
-      const articleTitle = encodeURIComponent(d.title.replace(/ /g, "_"));
+      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
+      const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
       const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
       window.open(url, "_blank");
     });
