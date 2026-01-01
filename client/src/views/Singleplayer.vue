@@ -324,7 +324,7 @@ async function loadArticle(path, isInitialLoad = false) {
     
     // Use the backend API with language parameter
     const response = await axios.get(
-      `http://localhost:3000/api/article/${encodeURIComponent(articleName)}`,
+      `${import.meta.env.VITE_API_URL}/article/${encodeURIComponent(articleName)}`,
       {
         params: {
           lang: currentLanguage.value

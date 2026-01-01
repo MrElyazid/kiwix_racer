@@ -52,8 +52,8 @@ class WikipediaService {
       if (error.response && error.response.status === 404) {
         throw new Error("Article not found");
       }
-      console.error(`Error fetching from Wikipedia: ${error.message}`);
-      throw new Error("Failed to fetch article from Wikipedia");
+      //console.error(`Error fetching from Wikipedia: ${error.message}`);
+      throw new Error(`Failed to fetch article from Wikipedia:${error.message}`);
     }
   }
 }

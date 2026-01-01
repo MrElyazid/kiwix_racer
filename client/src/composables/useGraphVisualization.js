@@ -6,7 +6,8 @@
 import { ref, computed } from "vue";
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api";
+// variable d'environnement vite pour l'URL de l'API,pour plus de sécurité
+const API_URL = import.meta.env.VITE_API_URL;
 
 export function useGraphVisualization() {
   // Graph data

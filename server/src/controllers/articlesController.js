@@ -25,12 +25,14 @@ export const getArticleByPath = async (req, res) => {
     console.log(`Fetching article: ${articlePath} from Wikipedia API `);
 
     // Fetch from Wikipedia API with language parameter
+    
     const html = await wikipediaService.fetchArticleHtml(articlePath, language);
-
+    
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   } catch (error) {
-    console.error(`Error fetching ${articlePath}: ${error.message}`);
+    // j'ai enleve le articlePath car ca casse le programme quand l'article n'existait pas
+    console.error(`Error fetching : ${error.message}`);
     if (error.message === "Article not found") {
       res.status(404).send("Article not found");
     } else {
