@@ -12,28 +12,31 @@ let sketch = null;
 const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 onMounted(() => {
-  const particles = [];
-
   const sketchFunction = (p) => {
+    // Simplement plus opaque que l'original
+    const colors = [
+      [255, 100, 100, 180],    // Rouge plus vif
+      [100, 180, 255, 180],    // Bleu plus vif
+      [180, 140, 255, 180],    // Violet plus vif
+      [255, 180, 100, 180],    // Orange
+      [100, 220, 180, 180]     // Turquoise plus vif
+    ];
+    
     class Particle {
       constructor() {
         this.x = p.random(p.windowWidth);
         this.y = p.random(p.windowHeight);
-        this.vx = p.random(-0.5, 0.5);
-        this.vy = p.random(-0.5, 0.5);
+        this.vx = p.random(-0.2, 0.2);
+        this.vy = p.random(-0.2, 0.2);
         this.letter = letters[p.floor(p.random(letters.length))];
-        this.size = p.random(20, 40);
-        this.rotation = p.random(p.TWO_PI);
-        this.rotationSpeed = p.random(-0.01, 0.01);
-        this.colorIndex = p.floor(p.random(3));
-        this.timeOffset = p.random(1000);
+        this.size = p.random(18, 25); // Légèrement plus grand
+        this.color = colors[p.floor(p.random(colors.length))];
       }
 
       update() {
         this.x += this.vx;
         this.y += this.vy;
-        this.rotation += this.rotationSpeed;
-
+        
         if (this.x < -50) this.x = p.windowWidth + 50;
         if (this.x > p.windowWidth + 50) this.x = -50;
         if (this.y < -50) this.y = p.windowHeight + 50;
@@ -41,44 +44,46 @@ onMounted(() => {
       }
 
       display() {
-        const colors = [
-          [255, 143, 143],
-          [194, 226, 250],
-          [183, 163, 227]
-        ];
-
-        const baseColor = colors[this.colorIndex];
-        // on calcule le wave avec un coef plus simple
-        const wave = Math.sin((p.frameCount + this.timeOffset) * 0.02) * 0.5 + 0.5;
-        const opacity = 60 + wave * 60; // map simplifié
-
-        p.push();
-        p.translate(this.x, this.y);
-        p.rotate(this.rotation);
-        p.fill(baseColor[0], baseColor[1], baseColor[2], opacity);
+        p.fill(this.color);
+        p.noStroke();
         p.textSize(this.size);
         p.textAlign(p.CENTER, p.CENTER);
-        p.text(this.letter, 0, 0);
-        p.pop();
+        p.text(this.letter, this.x, this.y);
       }
     }
 
+    let particles = [];
+    let lastFrameTime = 0;
+    const FRAME_INTERVAL = 33;
+    
     p.setup = () => {
       const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
       canvas.parent(canvasContainer.value);
-      p.pixelDensity(1); // moins de pixels à calculer sur écrans retina
-
-      for (let i = 0; i < 70; i++) { // légèrement moins de particules
+      
+      particles = [];
+      for (let i = 0; i < 50; i++) {
         particles.push(new Particle());
       }
+      
+      p.noLoop();
+      
+      const animate = () => {
+        const now = Date.now();
+        if (now - lastFrameTime >= FRAME_INTERVAL) {
+          lastFrameTime = now;
+          p.redraw();
+        }
+        requestAnimationFrame(animate);
+      };
+      animate();
     };
 
     p.draw = () => {
-      p.clear(); // on garde clear pour l’effet fluide
-
-      for (const particle of particles) {
-        particle.update();
-        particle.display();
+      p.clear();
+      
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+        particles[i].display();
       }
     };
 
@@ -91,7 +96,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (sketch) sketch.remove();
+  if (sketch) {
+    sketch.remove();
+  }
 });
 </script>
 
