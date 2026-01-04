@@ -41,20 +41,20 @@ onMounted(() => {
       }
 
       display() {
-        p.push();
-        p.translate(this.x, this.y);
-        p.rotate(this.rotation);
-        
         const colors = [
           [255, 143, 143],
           [194, 226, 250],
           [183, 163, 227]
         ];
-        
+
         const baseColor = colors[this.colorIndex];
-        const wave = p.sin((p.frameCount + this.timeOffset) * 0.02) * 0.5 + 0.5;
-        const opacity = p.map(wave, 0, 1, 60, 120);
-        
+        // on calcule le wave avec un coef plus simple
+        const wave = Math.sin((p.frameCount + this.timeOffset) * 0.02) * 0.5 + 0.5;
+        const opacity = 60 + wave * 60; // map simplifié
+
+        p.push();
+        p.translate(this.x, this.y);
+        p.rotate(this.rotation);
         p.fill(baseColor[0], baseColor[1], baseColor[2], opacity);
         p.textSize(this.size);
         p.textAlign(p.CENTER, p.CENTER);
@@ -66,16 +66,17 @@ onMounted(() => {
     p.setup = () => {
       const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
       canvas.parent(canvasContainer.value);
+      p.pixelDensity(1); // moins de pixels à calculer sur écrans retina
 
-      for (let i = 0; i < 100; i++) {
+      for (let i = 0; i < 70; i++) { // légèrement moins de particules
         particles.push(new Particle());
       }
     };
 
     p.draw = () => {
-      p.clear();
+      p.clear(); // on garde clear pour l’effet fluide
 
-      for (let particle of particles) {
+      for (const particle of particles) {
         particle.update();
         particle.display();
       }
@@ -90,9 +91,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (sketch) {
-    sketch.remove();
-  }
+  if (sketch) sketch.remove();
 });
 </script>
 
