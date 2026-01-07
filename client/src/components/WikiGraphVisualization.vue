@@ -417,12 +417,20 @@ const updateVisualization = () => {
     })
     .attr("fill", (d) => {
       const pathIds = new Set(path.value);
-      if (pathIds.has(d.id)) return "#ff6b6b";
+      if (pathIds.has(d.id)) {
+        if (selectedTarget.value && d.id === selectedTarget.value.id) {
+          return "#2196F3"; // Bleu pour le nœud target
+        }
+        if (selectedSource.value && d.id === selectedSource.value.id) {
+          return "#4CAF50"; // Vert pour le nœud source
+        }
+        return "#ff6b6b"; // Rouge pour les autres nœuds du chemin
+      }
       if (selectedSource.value && d.id === selectedSource.value.id)
         return "#4CAF50";
       if (selectedTarget.value && d.id === selectedTarget.value.id)
         return "#2196F3";
-      return "#69b3a2";
+      return "#69b3a2"; 
     })
     .attr("stroke", "#fff")
     .attr("stroke-width", 2)
