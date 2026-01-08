@@ -26,8 +26,8 @@ onMounted(() => {
       constructor() {
         this.x = p.random(p.windowWidth);
         this.y = p.random(p.windowHeight);
-        this.vx = p.random(-0.2, 0.2);
-        this.vy = p.random(-0.2, 0.2);
+        this.vx = p.random(-0.5, 0.5);
+        this.vy = p.random(-0.5, 0.5);
         this.letter = letters[p.floor(p.random(letters.length))];
         this.size = p.random(18, 25); // Légèrement plus grand
         this.color = colors[p.floor(p.random(colors.length))];
@@ -53,29 +53,15 @@ onMounted(() => {
     }
 
     let particles = [];
-    let lastFrameTime = 0;
-    const FRAME_INTERVAL = 33;
     
     p.setup = () => {
       const canvas = p.createCanvas(p.windowWidth, p.windowHeight);
       canvas.parent(canvasContainer.value);
       
       particles = [];
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 80; i++) {
         particles.push(new Particle());
       }
-      
-      p.noLoop();
-      
-      const animate = () => {
-        const now = Date.now();
-        if (now - lastFrameTime >= FRAME_INTERVAL) {
-          lastFrameTime = now;
-          p.redraw();
-        }
-        requestAnimationFrame(animate);
-      };
-      animate();
     };
 
     p.draw = () => {

@@ -5,16 +5,19 @@
     <section class="hero is-fullheight-with-navbar">
       <div class="hero-body">
         <div class="container has-text-centered">
-          <div class="language-selector">
-            <button class="language-btn" @click="setLanguage('en')" :class="{ active: currentLanguage === 'en' }">
-              🇬🇧
-            </button>
-            <button class="language-btn" @click="setLanguage('fr')" :class="{ active: currentLanguage === 'fr' }">
-              🇫🇷
-            </button>
+          <div class="language-selector-container">
+            <p class="language-label">Choose singleplayer and multiplayer wiki language</p>
+            <div class="language-selector">
+              <button class="language-btn" @click="setLanguage('en')" :class="{ active: currentLanguage === 'en' }">
+                🇬🇧
+              </button>
+              <button class="language-btn" @click="setLanguage('fr')" :class="{ active: currentLanguage === 'fr' }">
+                🇫🇷
+              </button>
+            </div>
           </div>
           
-          <h1 class="title is-1 main-title">Kiwix Racer</h1>
+          <h1 class="title is-1 main-title">WikiDash</h1>
           <p class="subtitle is-4 subtitle-text">
             Navigate from one Wikipedia article to another in the quickest way
             possible
@@ -24,7 +27,7 @@
             <div class="column is-4">
               <div class="card game-card">
                 <div class="card-content">
-                  <p class="title is-4 card-title">🎮 Singleplayer</p>
+                  <p class="title is-4 card-title">Singleplayer</p>
                   <p class="content card-text">
                     Choose starting and target articles, then race to find the
                     path between them
@@ -39,7 +42,7 @@
             <div class="column is-4">
               <div class="card game-card">
                 <div class="card-content">
-                  <p class="title is-4 card-title">🌐 Multiplayer</p>
+                  <p class="title is-4 card-title">Multiplayer</p>
                   <p class="content card-text">
                     Race against other players in real-time Wiki navigation
                     challenges
@@ -54,7 +57,7 @@
             <div class="column is-4">
               <div class="card game-card">
                 <div class="card-content">
-                  <p class="title is-4 card-title">🔍 Explore</p>
+                  <p class="title is-4 card-title">Explore</p>
                   <p class="content card-text">
                     Browse Wikipedia datasets and visualize graph traversal
                     algorithms
@@ -106,15 +109,12 @@ function setLanguage(lang) {
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
   height: 100%;
   border: 2px solid #C2E2FA;
 }
 
 .game-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  border-color: #FF8F8F;
+  /* No hover effect */
 }
 
 .card-content .title {
@@ -140,12 +140,26 @@ function setLanguage(lang) {
 }
 
 /* Language Selector */
+.language-selector-container {
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.language-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
 .language-selector {
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 2rem;
 }
 
 .language-btn {
@@ -155,14 +169,11 @@ function setLanguage(lang) {
   padding: 0.5rem 1rem;
   font-size: 2rem;
   cursor: pointer;
-  transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .language-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border-color: #FF8F8F;
+  /* No hover effect */
 }
 
 .language-btn.active {

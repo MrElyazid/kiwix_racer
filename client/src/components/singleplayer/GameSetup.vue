@@ -2,7 +2,7 @@
   <div class="container">
     <div class="content-wrapper">
       <h1 class="title is-1 has-text-centered mb-6 page-title">
-        Wikipedia Racer
+        Singleplayer configuration
       </h1>
 
       <!-- Game Setup -->
@@ -304,7 +304,7 @@ defineEmits([
 }
 
 .button.is-info {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   border: none;
   border-radius: 6px;
   color: white;
@@ -312,7 +312,7 @@ defineEmits([
   padding: 0.375rem 1rem;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 
-    0 2px 8px rgba(102, 126, 234, 0.2),
+    0 2px 8px rgba(16, 185, 129, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
   position: relative;
   overflow: hidden;
@@ -323,14 +323,14 @@ defineEmits([
 .button.is-info:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 
-    0 4px 12px rgba(102, 126, 234, 0.3),
+    0 4px 12px rgba(16, 185, 129, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .button.is-info:active:not(:disabled) {
   transform: translateY(0);
   box-shadow: 
-    0 1px 4px rgba(102, 126, 234, 0.2),
+    0 1px 4px rgba(16, 185, 129, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 

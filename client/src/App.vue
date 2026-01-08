@@ -8,19 +8,14 @@
     >
       <div class="container">
         <div class="navbar-brand">
-          <router-link to="/" class="navbar-item">
-            <strong>Kiwix Racer</strong>
+          <router-link to="/" class="navbar-item logo-item">
+            <img :src="logo" alt="WikiDash Logo" class="logo-img" />
+            <strong>WikiDash</strong>
           </router-link>
         </div>
-        <p class="navbar-item">Language : <strong>{{ currentLanguage }}</strong></p>
-
         <div class="navbar-menu">
           <div class="navbar-end">
             <router-link to="/" class="navbar-item">Home</router-link>
-            <router-link to="/singleplayer" class="navbar-item"
-              >Singleplayer</router-link
-            >
-            <router-link to="/explore" class="navbar-item">Explore</router-link>
           </div>
         </div>
       </div>
@@ -40,6 +35,7 @@ import { ref } from "vue";
 import { RouterView } from "vue-router";
 import { useLanguageStore } from "@/stores/language";
 import { storeToRefs } from "pinia";
+import logo from "@/assets/logo.png";
 
 const hideNavbar = ref(false);
 
@@ -49,30 +45,62 @@ const { currentLanguage } = storeToRefs(languageStore);
 </script>
 
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Bagel+Fat+One&display=swap');
+
 #app {
   min-height: 100vh;
 }
 
 .navbar.is-transparent {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-color: rgba(230, 245, 255, 0.95) !important;
   backdrop-filter: blur(10px);
-  border-bottom: 2px solid #c2e2fa;
+  border-bottom: 2px solid #C2E2FA;
+  padding: 0.5rem 0;
+  box-shadow: 0 2px 10px rgba(194, 226, 250, 0.2);
 }
 
 .navbar-item {
   font-size: 1.1rem;
   font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto,
-    sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  color: #2c3e50;
+  border-radius: 8px;
+  margin: 0 0.25rem;
+  transition: all 0.3s ease;
 }
 
 .navbar-brand .navbar-item strong {
-  font-size: 1.3rem;
-  font-weight: 800;
+  font-family: 'Bagel Fat One', cursive;
+  font-size: 1.8rem;
+  font-weight: 400;
+  color: #2c3e50;
+  letter-spacing: 1px;
 }
 
-.navbar-item:hover {
-  background-color: rgba(255, 143, 143, 0.1) !important;
+.logo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-img {
+  max-height: 32px;
+  width: auto;
+  transition: transform 0.3s ease;
+}
+
+.navbar-item:hover .logo-img {
+  transform: rotate(-10deg);
+}
+
+.navbar-item:hover, .navbar-item.router-link-active {
+  background-color: rgba(255, 143, 143, 0.15) !important;
+  color: #e04a4a !important;
+}
+
+.navbar-item.logo-item:hover {
+  background-color: transparent !important;
+  color: #2c3e50 !important;
 }
 
 .is-fullheight-with-navbar {

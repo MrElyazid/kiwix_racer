@@ -9,10 +9,6 @@
 export const startGame = async (req, res) => {
   try {
     const { startArticle, targetArticle, archive } = req.body;
-
-    // TODO: Validate articles exist
-    // TODO: Generate game session ID
-
     res.json({
       gameId: "game_" + Date.now(),
       startArticle: startArticle || "Random_Start",
@@ -38,9 +34,6 @@ export const validatePath = async (req, res) => {
         .json({ error: "Path must be an array of article titles" });
     }
 
-    // TODO: Validate each link in the path exists
-    // TODO: Calculate score based on path length and time
-
     res.json({
       gameId,
       valid: true,
@@ -59,9 +52,6 @@ export const getShortestPath = async (req, res) => {
   try {
     const { from, to } = req.params;
     const { archive } = req.query;
-
-    // TODO: Implement BFS or other pathfinding algorithm
-    // TODO: Query SQLite database for link relationships
 
     res.json({
       from,

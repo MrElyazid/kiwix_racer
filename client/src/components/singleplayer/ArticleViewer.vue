@@ -44,12 +44,11 @@ defineExpose({
 <style scoped>
 /* Game Container - Full viewport */
 .game-container {
-  position: fixed;
-  top: 53px; /* game info bar height */
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
+  height: calc(100vh - 53px); /* Subtract game info bar height */
+  margin-top: 53px;
   background: white;
+  z-index: 1;
 }
 
 .article-viewer {
