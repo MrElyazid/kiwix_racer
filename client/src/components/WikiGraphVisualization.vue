@@ -69,21 +69,21 @@
               {{ isLoading ? "Finding..." : "Find Path" }}
             </button>
             <button
-              @click="buildGraph"
-              :disabled="!selectedSource || isLoading"
-              class="btn-action btn-secondary"
-              title="Build graph from selected article"
-            >
-              {{ isLoading ? "Building..." : "Build Graph" }}
-            </button>
-            <button
               @click="startInteractiveExploration"
               :disabled="!selectedSource || isLoading"
               class="btn-action btn-secondary"
               :class="{ 'btn-active': isInteractiveMode }"
               title="Interactive exploration mode"
             >
-              {{ isInteractiveMode ? "Exploring..." : "Tree" }}
+              {{ isInteractiveMode ? "Exploring..." : "GameTree" }}
+            </button>
+            <button
+              @click="buildGraph"
+              :disabled="!selectedSource || isLoading"
+              class="btn-action btn-secondary"
+              title="Build graph from selected article"
+            >
+              {{ isLoading ? "Building..." : "Build Graph" }}
             </button>
             <button
               @click="getRandomAndBuildGraph"
@@ -106,7 +106,7 @@
           </div>
         </div>
 
-        <!-- Interactive Mode Info removed: using minimal controls for Tree mode -->
+        <!-- Interactive Mode Info removed: using minimal controls for GameTree mode -->
 
         <!-- Status Messages -->
         <div class="control-section">
@@ -661,7 +661,7 @@ const updateVisualization = () => {
       return 8;
     })
     .attr("fill", (d) => {
-      // Mode Tree (Interactive)
+      // Mode GameTree (Interactive)
       if (d.isTargetNode && targetFound.value) return "#FFD700"; // Or brillant pour la cible trouvée!
       if (d.isExplorationRoot) return "#4CAF50"; // Même vert que source en Find Path
       if (d.isCurrentNode) return "#ff6b6b"; // Même rouge que le chemin
