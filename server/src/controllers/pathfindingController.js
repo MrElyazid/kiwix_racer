@@ -196,7 +196,14 @@ export const getDatabaseStats = async (req, res) => {
  */
 export const getNeighbors = async (req, res) => {
   try {
-    const { title, max_neighbors = 10 } = req.body;
+    const { title } = req.body;
+    let { max_neighbors } = req.body;
+
+    // Interpret non-positive or missing max_neighbors as 'no limit'
+    max_neighbors = parseInt(max_neighbors);
+    if (isNaN(max_neighbors) || max_neighbors <= 0) {
+      max_neighbors = null;
+    }
 
     if (!title) {
       return res.status(400).json({
@@ -204,7 +211,7 @@ export const getNeighbors = async (req, res) => {
       });
     }
 
-    console.log(`Getting neighbors for "${title}"`);
+    console.log(`Getting neighbors for "${title}" (max_neighbors=${max_neighbors})`);
 
     const result = pathfindingService.getNodeNeighbors(title, max_neighbors);
 

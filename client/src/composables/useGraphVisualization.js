@@ -119,7 +119,7 @@ export function useGraphVisualization() {
    * @param {string} title - Article title
    * @param {number} maxNeighbors - Maximum neighbors to return
    */
-  async function getNeighbors(title, maxNeighbors = 10) {
+  async function getNeighbors(title, maxNeighbors = 200) {
     try {
       const response = await axios.post(`${API_URL}/pathfinding/get-neighbors`, {
         title,

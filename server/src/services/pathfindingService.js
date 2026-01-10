@@ -250,7 +250,7 @@ export function buildGraph(
  * @param {number} maxNeighbors - Maximum number of neighbors to return
  * @returns {Object} Object containing the node and its neighbors
  */
-export function getNodeNeighbors(pageTitle, maxNeighbors = 10) {
+export function getNodeNeighbors(pageTitle, maxNeighbors = null) {
   const page = sdowService.findPageByTitle(pageTitle);
 
   if (!page) {
@@ -277,7 +277,10 @@ export function getNodeNeighbors(pageTitle, maxNeighbors = 10) {
     };
   }
 
-  const neighborIds = linkData.outgoing_links.slice(0, maxNeighbors);
+  // If maxNeighbors is null or non-positive, return all outgoing links
+  const neighborIds = maxNeighbors && maxNeighbors > 0
+    ? linkData.outgoing_links.slice(0, maxNeighbors)
+    : linkData.outgoing_links;
   const neighborPages = sdowService.findPagesByIds(neighborIds);
 
   const neighbors = neighborPages.map(neighbor => ({

@@ -106,8 +106,6 @@
           </div>
         </div>
 
-        <!-- Interactive Mode Info removed: using minimal controls for GameTree mode -->
-
         <!-- Status Messages -->
         <div class="control-section">
           <div v-if="error" class="message error">{{ error }}</div>
@@ -156,7 +154,7 @@ const isPanelCollapsed = ref(false);
 // Interactive exploration state
 const isInteractiveMode = ref(false);
 const explorationPath = ref([]);
-const maxNeighbors = 10;
+const maxNeighbors = 200; // default neighbor limit
 const targetFound = ref(false);
 const notification = ref({
   show: false,
@@ -387,13 +385,16 @@ const handleNodeClickInteractive = async (event, d) => {
       return;
     }
 
+    // Trouver l'index du nœud cliqué dans le chemin en utilisant le titre comme clé unique
     const clickedIndex = explorationPath.value.findIndex(
-      n => (n.id || n.title) === (d.id || d.title)
+      n => n.title === d.title
     );
 
     if (clickedIndex !== -1) {
+      // Si le nœud cliqué est déjà dans le chemin, tronquer le chemin à ce point
       explorationPath.value = explorationPath.value.slice(0, clickedIndex + 1);
     } else {
+      // Sinon, ajouter le nouveau nœud au chemin
       explorationPath.value.push({
         id: result.node.id,
         title: result.node.title,
@@ -403,7 +404,7 @@ const handleNodeClickInteractive = async (event, d) => {
     // Vérifier si on a atteint la cible
     if (
       selectedTarget.value &&
-      (result.node.id === selectedTarget.value.id || result.node.title === selectedTarget.value.title)
+      result.node.title === selectedTarget.value.title
     ) {
       targetFound.value = true;
       stopTimer();
@@ -420,6 +421,7 @@ const handleNodeClickInteractive = async (event, d) => {
       };
     }
 
+    // Créer les nœuds du chemin
     const pathNodes = explorationPath.value.map((node, index) => ({
       id: node.id || node.title,
       title: node.title,
@@ -427,18 +429,14 @@ const handleNodeClickInteractive = async (event, d) => {
       isExplorationRoot: index === 0,
       isCurrentNode: index === explorationPath.value.length - 1,
       isTargetNode: selectedTarget.value && 
-                    (node.id === selectedTarget.value.id || 
-                     node.title === selectedTarget.value.title),
-      x: d.x,
-      y: d.y
+                    node.title === selectedTarget.value.title,
     }));
 
+    // Créer les nœuds voisins
     const neighborNodes = result.neighbors.map(neighbor => ({
       id: neighbor.id,
       title: neighbor.title,
       isNeighbor: true,
-      x: d.x,
-      y: d.y
     }));
 
     nodes.value = [...pathNodes, ...neighborNodes];
@@ -652,7 +650,7 @@ const updateVisualization = () => {
     .append("circle")
     .attr("class", "node")
     .attr("r", (d) => {
-      if (d.isTargetNode && targetFound.value) return 16; // Plus gros pour la cible trouvée!
+      if (d.isTargetNode && targetFound.value) return 16;
       if (d.isExplorationRoot) return 14;
       if (d.isCurrentNode) return 12;
       if (d.inPath) return 10;
@@ -662,11 +660,11 @@ const updateVisualization = () => {
     })
     .attr("fill", (d) => {
       // Mode GameTree (Interactive)
-      if (d.isTargetNode && targetFound.value) return "#FFD700"; // Or brillant pour la cible trouvée!
-      if (d.isExplorationRoot) return "#4CAF50"; // Même vert que source en Find Path
-      if (d.isCurrentNode) return "#ff6b6b"; // Même rouge que le chemin
-      if (d.inPath) return "#ff6b6b"; // Rouge pour le chemin parcouru
-      if (d.isNeighbor) return "#69b3a2"; // Voisins en vert-bleu
+      if (d.isTargetNode && targetFound.value) return "#FFD700";
+      if (d.isExplorationRoot) return "#4CAF50";
+      if (d.isCurrentNode) return "#ff6b6b";
+      if (d.inPath) return "#ff6b6b";
+      if (d.isNeighbor) return "#69b3a2";
       
       // Mode Find Path
       const pathIds = new Set(path.value);
@@ -1022,7 +1020,6 @@ onBeforeUnmount(() => {
   cursor: not-allowed;
   transform: none !important;
 }
-
 
 .message {
   padding: 0.6rem 0.8rem;
