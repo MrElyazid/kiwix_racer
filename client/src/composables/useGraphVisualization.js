@@ -115,6 +115,25 @@ export function useGraphVisualization() {
   }
 
   /**
+   * Get neighbors of a specific node
+   * @param {string} title - Article title
+   * @param {number} maxNeighbors - Maximum neighbors to return
+   */
+  async function getNeighbors(title, maxNeighbors = 10) {
+    try {
+      const response = await axios.post(`${API_URL}/pathfinding/get-neighbors`, {
+        title,
+        max_neighbors: maxNeighbors,
+      });
+
+      return response.data;
+    } catch (err) {
+      console.error("Error getting neighbors:", err);
+      throw err;
+    }
+  }
+
+  /**
    * Search for Wikipedia articles
    * @param {string} query - Search query
    * @param {number} limit - Maximum results
@@ -236,6 +255,7 @@ export function useGraphVisualization() {
     // Methods
     buildGraph,
     findPath,
+    getNeighbors,
     searchArticles,
     getRandomArticle,
     getDatabaseStats,

@@ -77,12 +77,13 @@
               {{ isLoading ? "Building..." : "Build Graph" }}
             </button>
             <button
-              @click="showTree"
+              @click="startInteractiveExploration"
               :disabled="!selectedSource || isLoading"
               class="btn-action btn-secondary"
-              title="Show only the selected source node (Tree)"
+              :class="{ 'btn-active': isInteractiveMode }"
+              title="Interactive exploration mode"
             >
-              Tree
+              {{ isInteractiveMode ? "Exploring..." : "Tree" }}
             </button>
             <button
               @click="getRandomAndBuildGraph"
@@ -102,6 +103,16 @@
             <button @click="clearVisualization" class="btn-action btn-clear">
               Clear
             </button>
+          </div>
+        </div>
+
+        <!-- Interactive Mode Info -->
+        <div v-if="isInteractiveMode" class="control-section">
+          <div class="message info interactive-info">
+            🔍 Interactive Mode: Click on nodes to explore their neighbors
+            <div v-if="explorationPath.length > 1" class="path-display">
+              Path: {{ explorationPath.map(n => n.title).join(' → ') }}
+            </div>
           </div>
         </div>
 
@@ -137,6 +148,11 @@ const selectedSource = ref(null);
 const selectedTarget = ref(null);
 const isPanelCollapsed = ref(false);
 
+// Interactive exploration state
+const isInteractiveMode = ref(false);
+const explorationPath = ref([]);
+const maxNeighbors = 10;
+
 const {
   nodes,
   links,
@@ -148,6 +164,7 @@ const {
   graphInfo,
   buildGraph: buildGraphAPI,
   findPath: findPathAPI,
+  getNeighbors: getNeighborsAPI,
   searchArticles: searchArticlesAPI,
   getRandomArticle,
   clearGraph,
@@ -167,51 +184,42 @@ const canFindPath = computed(
 );
 
 const searchArticles = async () => {
-  // Clear previous timeout
   if (searchTimeout) {
     clearTimeout(searchTimeout);
   }
 
-  // If search is empty, clear results
   if (!searchQuery.value.trim()) {
     searchResults.value = [];
     return;
   }
 
-  // Debounce search by 300ms
   searchTimeout = setTimeout(async () => {
     await searchArticlesAPI(searchQuery.value);
   }, 300);
 };
 
-// New: polite input handler that replaces spaces with underscores
 const onSearchInput = (e) => {
   const el = e.target;
   const old = el.value;
   const caretPos = el.selectionStart;
 
-  // Replace any whitespace sequence with a single underscore
   const newVal = old.replace(/\s+/g, "_");
 
   if (newVal !== old) {
-    // Update the reactive value
     searchQuery.value = newVal;
-
-    // After DOM update, reposition caret to account for replacement
     nextTick(() => {
       const diff = newVal.length - old.length;
       const newPos = Math.max(0, caretPos + diff);
       try {
         el.setSelectionRange(newPos, newPos);
       } catch (err) {
-        // ignore if element not focusable
+        // ignore
       }
     });
   } else {
     searchQuery.value = newVal;
   }
 
-  // Trigger the (debounced) search using the updated value
   searchArticles();
 };
 
@@ -230,11 +238,15 @@ const selectArticle = (article) => {
 
 const findPath = async () => {
   if (!canFindPath.value) return;
+  isInteractiveMode.value = false;
+  explorationPath.value = [];
   await findPathAPI(selectedSource.value.title, selectedTarget.value.title);
 };
 
 const buildGraph = async () => {
   if (!selectedSource.value) return;
+  isInteractiveMode.value = false;
+  explorationPath.value = [];
   await buildGraphAPI(selectedSource.value.title, 2, 100);
 };
 
@@ -242,33 +254,140 @@ const getRandomAndBuildGraph = async () => {
   const article = await getRandomArticle();
   if (article) {
     selectedSource.value = article;
+    isInteractiveMode.value = false;
+    explorationPath.value = [];
     await buildGraphAPI(article.title, 2, 100);
   }
 };
 
-const showTree = async () => {
+/**
+ * Start interactive exploration mode
+ * Shows only the source node initially
+ */
+const startInteractiveExploration = async () => {
   if (!selectedSource.value) return;
-  // Clear any existing graph/path and show only the source node
+  
   clearGraph();
   clearPath();
+  
+  isInteractiveMode.value = true;
+  explorationPath.value = [selectedSource.value];
 
   nodes.value = [
     {
       id: selectedSource.value.id || selectedSource.value.title,
       title: selectedSource.value.title,
+      isExplorationRoot: true,
+      inPath: true,
     },
   ];
   links.value = [];
 
-  // Update visualization and center view
   nextTick(() => {
     try {
       updateVisualization();
     } catch (err) {
-      // ignore visualization errors
+      console.error("Visualization error:", err);
     }
     centerView();
   });
+};
+
+/**
+ * Handle node click in interactive mode
+ * Expands the clicked node's neighbors
+ */
+const handleNodeClickInteractive = async (event, d) => {
+  if (!isInteractiveMode.value) {
+    // Normal mode: open Wikipedia
+    const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
+    const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
+    const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
+    window.open(url, "_blank");
+    return;
+  }
+
+  // Interactive mode: expand neighbors
+  event.stopPropagation();
+
+  try {
+    isLoading.value = true;
+    error.value = null;
+
+    const result = await getNeighborsAPI(d.title, maxNeighbors);
+
+    if (!result || !result.neighbors || result.neighbors.length === 0) {
+      error.value = "No neighbors found for this article";
+      isLoading.value = false;
+      return;
+    }
+
+    // Find if clicked node is in current path
+    const clickedIndex = explorationPath.value.findIndex(
+      n => (n.id || n.title) === (d.id || d.title)
+    );
+
+    if (clickedIndex !== -1) {
+      // Clicked on a node in the path - truncate path and show its neighbors
+      explorationPath.value = explorationPath.value.slice(0, clickedIndex + 1);
+    } else {
+      // Clicked on a neighbor - add to path
+      explorationPath.value.push({
+        id: result.node.id,
+        title: result.node.title,
+      });
+    }
+
+    // Build nodes: path + neighbors of clicked node
+    const pathNodes = explorationPath.value.map((node, index) => ({
+      id: node.id || node.title,
+      title: node.title,
+      inPath: true,
+      isExplorationRoot: index === 0,
+      isCurrentNode: index === explorationPath.value.length - 1,
+    }));
+
+    const neighborNodes = result.neighbors.map(neighbor => ({
+      id: neighbor.id,
+      title: neighbor.title,
+      isNeighbor: true,
+    }));
+
+    nodes.value = [...pathNodes, ...neighborNodes];
+
+    // Build links: path links + neighbor links
+    const pathLinks = [];
+    for (let i = 0; i < explorationPath.value.length - 1; i++) {
+      pathLinks.push({
+        source: explorationPath.value[i].id || explorationPath.value[i].title,
+        target: explorationPath.value[i + 1].id || explorationPath.value[i + 1].title,
+        isPath: true,
+      });
+    }
+
+    const neighborLinks = result.links.map(link => ({
+      source: link.source,
+      target: link.target,
+      isNeighborLink: true,
+    }));
+
+    links.value = [...pathLinks, ...neighborLinks];
+
+    nextTick(() => {
+      try {
+        updateVisualization();
+      } catch (err) {
+        console.error("Visualization error:", err);
+      }
+      centerView();
+    });
+
+  } catch (err) {
+    error.value = err.message || "Failed to get neighbors";
+    console.error("Error getting neighbors:", err);
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 const clearVisualization = () => {
@@ -277,10 +396,14 @@ const clearVisualization = () => {
   selectedSource.value = null;
   selectedTarget.value = null;
   searchQuery.value = "";
+  isInteractiveMode.value = false;
+  explorationPath.value = [];
+  
   if (svg) {
     try {
       svg.remove();
     } catch (err) {
+      // ignore
     }
     svg = null;
     g = null;
@@ -292,6 +415,7 @@ const clearVisualization = () => {
       try {
         simulation.stop();
       } catch (err) {
+        // ignore
       }
       simulation = null;
     }
@@ -308,13 +432,11 @@ const centerView = () => {
   const width = graphContainer.value.clientWidth;
   const height = graphContainer.value.clientHeight;
 
-  // Reset zoom to center
   svg
     .transition()
     .duration(750)
     .call(d3.zoom().transform, d3.zoomIdentity.translate(0, 0).scale(1));
 
-  // Restart simulation to re-center nodes
   if (simulation) {
     simulation.force("center", d3.forceCenter(width / 2, height / 2));
     simulation.alpha(0.3).restart();
@@ -334,10 +456,8 @@ const initVisualization = () => {
     .attr("height", height)
     .attr("viewBox", [0, 0, width, height]);
 
-  // Define arrow markers
   const defs = svg.append("defs");
 
-  // Regular arrow marker
   defs
     .append("marker")
     .attr("id", "arrowhead")
@@ -351,7 +471,6 @@ const initVisualization = () => {
     .attr("d", "M0,-5L10,0L0,5")
     .attr("fill", "#999");
 
-  // Path arrow marker (highlighted)
   defs
     .append("marker")
     .attr("id", "arrowhead-path")
@@ -367,7 +486,6 @@ const initVisualization = () => {
 
   g = svg.append("g");
 
-  // Add zoom behavior
   const zoom = d3
     .zoom()
     .scaleExtent([0.1, 4])
@@ -377,7 +495,6 @@ const initVisualization = () => {
 
   svg.call(zoom);
 
-  // Create simulation
   simulation = d3
     .forceSimulation()
     .force(
@@ -410,14 +527,16 @@ const updateVisualization = () => {
     .append("line")
     .attr("class", "link")
     .attr("stroke", (d) => {
+      if (d.isPath) return "#ff6b6b";
+      if (d.isNeighborLink) return "#999";
       const pathIds = new Set(path.value);
       const sourceId = d.source.id || d.source;
       const targetId = d.target.id || d.target;
-      return pathIds.has(sourceId) && pathIds.has(targetId)
-        ? "#ff6b6b"
-        : "#999";
+      return pathIds.has(sourceId) && pathIds.has(targetId) ? "#ff6b6b" : "#999";
     })
     .attr("stroke-width", (d) => {
+      if (d.isPath) return 3;
+      if (d.isNeighborLink) return 1;
       const pathIds = new Set(path.value);
       const sourceId = d.source.id || d.source;
       const targetId = d.target.id || d.target;
@@ -425,6 +544,8 @@ const updateVisualization = () => {
     })
     .attr("stroke-opacity", 0.6)
     .attr("marker-end", (d) => {
+      if (d.isPath) return "url(#arrowhead-path)";
+      if (d.isNeighborLink) return "url(#arrowhead)";
       const pathIds = new Set(path.value);
       const sourceId = d.source.id || d.source;
       const targetId = d.target.id || d.target;
@@ -444,29 +565,32 @@ const updateVisualization = () => {
     .append("circle")
     .attr("class", "node")
     .attr("r", (d) => {
+      if (d.isExplorationRoot) return 14;
+      if (d.isCurrentNode) return 12;
+      if (d.inPath) return 10;
       if (selectedSource.value && d.id === selectedSource.value.id) return 12;
       if (selectedTarget.value && d.id === selectedTarget.value.id) return 12;
       return 8;
     })
     .attr("fill", (d) => {
+      if (d.isExplorationRoot) return "#9C27B0"; // Purple for root
+      if (d.isCurrentNode) return "#FF9800"; // Orange for current
+      if (d.inPath) return "#ff6b6b"; // Red for path
+      if (d.isNeighbor) return "#69b3a2"; // Green for neighbors
+      
       const pathIds = new Set(path.value);
       if (pathIds.has(d.id)) {
-        if (selectedTarget.value && d.id === selectedTarget.value.id) {
-          return "#2196F3"; // Bleu pour le nœud target
-        }
-        if (selectedSource.value && d.id === selectedSource.value.id) {
-          return "#4CAF50"; // Vert pour le nœud source
-        }
-        return "#ff6b6b"; // Rouge pour les autres nœuds du chemin
+        if (selectedTarget.value && d.id === selectedTarget.value.id) return "#2196F3";
+        if (selectedSource.value && d.id === selectedSource.value.id) return "#4CAF50";
+        return "#ff6b6b";
       }
-      if (selectedSource.value && d.id === selectedSource.value.id)
-        return "#4CAF50";
-      if (selectedTarget.value && d.id === selectedTarget.value.id)
-        return "#2196F3";
-      return "#69b3a2"; 
+      if (selectedSource.value && d.id === selectedSource.value.id) return "#4CAF50";
+      if (selectedTarget.value && d.id === selectedTarget.value.id) return "#2196F3";
+      return "#69b3a2";
     })
     .attr("stroke", "#fff")
     .attr("stroke-width", 2)
+    .style("cursor", "pointer")
     .call(
       d3
         .drag()
@@ -474,13 +598,7 @@ const updateVisualization = () => {
         .on("drag", dragged)
         .on("end", dragEnded)
     )
-    .on("click", (event, d) => {
-      // Open Wikipedia article in new tab
-      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
-      const articleTitle = encodeURIComponent( clean(d.title).replace(/ /g, "_"));
-      const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
-      window.open(url, "_blank");
-    });
+    .on("click", handleNodeClickInteractive);
 
   nodeElements = nodeEnter.merge(nodeSelection);
 
@@ -495,17 +613,19 @@ const updateVisualization = () => {
     .attr("class", "label")
     .attr("text-anchor", "middle")
     .attr("dy", -15)
-    .attr("font-size", "6px")
+    .attr("font-size", (d) => {
+      if (d.isExplorationRoot || d.isCurrentNode) return "8px";
+      if (d.inPath) return "7px";
+      return "6px";
+    })
+    .attr("font-weight", (d) => {
+      if (d.isExplorationRoot || d.isCurrentNode || d.inPath) return "700";
+      return "500";
+    })
     .attr("fill", "#333")
     .style("cursor", "pointer")
     .text((d) => d.title)
-    .on("click", (event, d) => {
-      // Open Wikipedia article in new tab
-      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
-      const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
-      const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
-      window.open(url, "_blank");
-    });
+    .on("click", handleNodeClickInteractive);
 
   labelElements = labelEnter.merge(labelSelection);
 
@@ -544,7 +664,6 @@ const dragEnded = (event, d) => {
   d.fy = null;
 };
 
-// Watch for changes in graph data
 watch(
   [nodes, links, path],
   () => {
@@ -572,7 +691,6 @@ onBeforeUnmount(() => {
   background: #fafafa;
 }
 
-/* Compact Control Panel Overlay */
 .control-panel {
   position: absolute;
   top: 1rem;
@@ -643,7 +761,6 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 
-/* Search Box */
 .search-box {
   width: 100%;
 }
@@ -663,7 +780,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 3px rgba(255, 143, 143, 0.1);
 }
 
-/* Search Results */
 .search-results {
   max-height: 180px;
   overflow-y: auto;
@@ -690,7 +806,6 @@ onBeforeUnmount(() => {
   color: #1a1a1a;
 }
 
-/* Selected Articles */
 .selected-articles {
   display: flex;
   flex-direction: column;
@@ -756,7 +871,6 @@ onBeforeUnmount(() => {
   transform: scale(1.1);
 }
 
-/* Action Buttons */
 .action-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -796,6 +910,12 @@ onBeforeUnmount(() => {
   transform: translateY(-2px);
 }
 
+.btn-action.btn-secondary.btn-active {
+  background: #FF9800;
+  color: white;
+  font-weight: 700;
+}
+
 .btn-action.btn-clear {
   background: #ff8f8f;
   color: white;
@@ -813,7 +933,22 @@ onBeforeUnmount(() => {
   transform: none !important;
 }
 
-/* Status Messages */
+.interactive-info {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.path-display {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #c2e2fa;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #FF9800;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
 .message {
   padding: 0.6rem 0.8rem;
   border-radius: 8px;
@@ -856,7 +991,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Fullscreen Graph Container */
 .graph-container {
   position: absolute;
   top: 0;
@@ -866,7 +1000,6 @@ onBeforeUnmount(() => {
   background: white;
 }
 
-/* D3 Graph Elements */
 .link {
   pointer-events: none;
 }
@@ -895,7 +1028,6 @@ onBeforeUnmount(() => {
   fill: #1a1a1a;
 }
 
-/* Scrollbar Styling */
 .panel-content::-webkit-scrollbar,
 .search-results::-webkit-scrollbar {
   width: 6px;
@@ -917,4 +1049,5 @@ onBeforeUnmount(() => {
 .search-results::-webkit-scrollbar-thumb:hover {
   background: #a8d5f7;
 }
+
 </style>

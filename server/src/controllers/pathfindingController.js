@@ -189,6 +189,35 @@ export const getDatabaseStats = async (req, res) => {
   }
 };
 
+/**
+ * Get neighbors of a specific node
+ * POST /api/pathfinding/get-neighbors
+ * Body: { title: "Article_Title", max_neighbors: 10 }
+ */
+export const getNeighbors = async (req, res) => {
+  try {
+    const { title, max_neighbors = 10 } = req.body;
+
+    if (!title) {
+      return res.status(400).json({
+        error: "Article title is required",
+      });
+    }
+
+    console.log(`Getting neighbors for "${title}"`);
+
+    const result = pathfindingService.getNodeNeighbors(title, max_neighbors);
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error getting neighbors:", error);
+    res.status(500).json({
+      error: "Failed to get neighbors",
+      message: error.message,
+    });
+  }
+};
+
 export default {
   findPath,
   buildGraph,
@@ -196,4 +225,5 @@ export default {
   searchPages,
   getRandomArticle,
   getDatabaseStats,
+  getNeighbors,
 };

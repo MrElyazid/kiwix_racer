@@ -244,7 +244,64 @@ export function buildGraph(
   };
 }
 
+/**
+ * Get neighbors of a specific node
+ * @param {string} pageTitle - Title of the page
+ * @param {number} maxNeighbors - Maximum number of neighbors to return
+ * @returns {Object} Object containing the node and its neighbors
+ */
+export function getNodeNeighbors(pageTitle, maxNeighbors = 10) {
+  const page = sdowService.findPageByTitle(pageTitle);
+
+  if (!page) {
+    throw new Error(`Article "${pageTitle}" not found`);
+  }
+
+  let pageId = page.id;
+
+  if (page.is_redirect) {
+    const resolved = sdowService.resolveRedirect(page.id);
+    if (resolved) pageId = resolved.target_id;
+  }
+
+  const linkData = sdowService.getPageLinks(pageId);
+  
+  if (!linkData) {
+    return {
+      node: {
+        id: pageId,
+        title: page.title,
+      },
+      neighbors: [],
+      links: [],
+    };
+  }
+
+  const neighborIds = linkData.outgoing_links.slice(0, maxNeighbors);
+  const neighborPages = sdowService.findPagesByIds(neighborIds);
+
+  const neighbors = neighborPages.map(neighbor => ({
+    id: neighbor.id,
+    title: neighbor.title,
+  }));
+
+  const links = neighborIds.map(neighborId => ({
+    source: pageId,
+    target: neighborId,
+  }));
+
+  return {
+    node: {
+      id: pageId,
+      title: page.title,
+    },
+    neighbors,
+    links,
+  };
+}
+
 export default {
   findPath,
   buildGraph,
+  getNodeNeighbors,
 };
