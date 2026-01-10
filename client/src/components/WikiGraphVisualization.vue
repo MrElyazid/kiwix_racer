@@ -77,6 +77,14 @@
               {{ isLoading ? "Building..." : "Build Graph" }}
             </button>
             <button
+              @click="showTree"
+              :disabled="!selectedSource || isLoading"
+              class="btn-action btn-secondary"
+              title="Show only the selected source node (Tree)"
+            >
+              Tree
+            </button>
+            <button
               @click="getRandomAndBuildGraph"
               :disabled="isLoading"
               class="btn-action btn-secondary"
@@ -236,6 +244,31 @@ const getRandomAndBuildGraph = async () => {
     selectedSource.value = article;
     await buildGraphAPI(article.title, 2, 100);
   }
+};
+
+const showTree = async () => {
+  if (!selectedSource.value) return;
+  // Clear any existing graph/path and show only the source node
+  clearGraph();
+  clearPath();
+
+  nodes.value = [
+    {
+      id: selectedSource.value.id || selectedSource.value.title,
+      title: selectedSource.value.title,
+    },
+  ];
+  links.value = [];
+
+  // Update visualization and center view
+  nextTick(() => {
+    try {
+      updateVisualization();
+    } catch (err) {
+      // ignore visualization errors
+    }
+    centerView();
+  });
 };
 
 const clearVisualization = () => {
