@@ -106,15 +106,7 @@
           </div>
         </div>
 
-        <!-- Interactive Mode Info -->
-        <div v-if="isInteractiveMode" class="control-section">
-          <div class="message info interactive-info">
-            🔍 Interactive Mode: Click on nodes to explore their neighbors
-            <div v-if="explorationPath.length > 1" class="path-display">
-              Path: {{ explorationPath.map(n => n.title).join(' → ') }}
-            </div>
-          </div>
-        </div>
+        <!-- Interactive Mode Info removed: using minimal controls for Tree mode -->
 
         <!-- Status Messages -->
         <div class="control-section">
@@ -134,12 +126,26 @@
 
     <!-- Fullscreen Graph Container -->
     <div ref="graphContainer" class="graph-container"></div>
+    
+    <!-- Use shared GameNotification modal for congratulations -->
+    <GameNotification
+      :show="notification.show"
+      :type="notification.type"
+      :title="notification.title"
+      :message="notification.message"
+      :stats="notification.stats"
+      :show-play-again="notification.showPlayAgain"
+      @close="closeNotification"
+      @play-again="playAgain"
+    />
   </div>
 </template>
+
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import * as d3 from "d3";
 import { useGraphVisualization } from "@/composables/useGraphVisualization";
+import GameNotification from "@/components/singleplayer/GameNotification.vue";
 
 const graphContainer = ref(null);
 const searchQuery = ref("");
@@ -151,6 +157,63 @@ const isPanelCollapsed = ref(false);
 const isInteractiveMode = ref(false);
 const explorationPath = ref([]);
 const maxNeighbors = 10;
+const targetFound = ref(false);
+const notification = ref({
+  show: false,
+  type: "info",
+  title: "",
+  message: "",
+  stats: null,
+  showPlayAgain: false,
+});
+
+const timerStart = ref(null);
+const elapsedMs = ref(0);
+let timerIntervalId = null;
+
+function startTimer() {
+  if (timerStart.value) return;
+  timerStart.value = Date.now();
+  elapsedMs.value = 0;
+  timerIntervalId = setInterval(() => {
+    elapsedMs.value = Date.now() - timerStart.value;
+  }, 100);
+}
+
+function stopTimer() {
+  if (timerIntervalId) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+  if (timerStart.value) {
+    elapsedMs.value = Date.now() - timerStart.value;
+  }
+  timerStart.value = null;
+}
+
+function resetTimer() {
+  stopTimer();
+  elapsedMs.value = 0;
+}
+
+function formatMsToMinutesSeconds(ms) {
+  const totalSeconds = Math.floor((ms || 0) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function closeNotification() {
+  notification.value.show = false;
+  targetFound.value = false;
+  resetTimer();
+}
+
+function playAgain() {
+  notification.value.show = false;
+  clearVisualization();
+  resetTimer();
+}
 
 const {
   nodes,
@@ -236,16 +299,22 @@ const selectArticle = (article) => {
 };
 
 const findPath = async () => {
-  if (!canFindPath.value) return;
+  if (!canFindPath.value || isLoading.value) return;
+  
+  // Désactiver le mode interactif
   isInteractiveMode.value = false;
   explorationPath.value = [];
+  
   await findPathAPI(selectedSource.value.title, selectedTarget.value.title);
 };
 
 const buildGraph = async () => {
-  if (!selectedSource.value) return;
+  if (!selectedSource.value || isLoading.value) return;
+  
+  // Désactiver le mode interactif
   isInteractiveMode.value = false;
   explorationPath.value = [];
+  
   await buildGraphAPI(selectedSource.value.title, 2, 100);
 };
 
@@ -264,8 +333,9 @@ const startInteractiveExploration = async () => {
   
   clearGraph();
   clearPath();
-  
+  resetTimer();
   isInteractiveMode.value = true;
+  targetFound.value = false;
   explorationPath.value = [selectedSource.value];
 
   nodes.value = [
@@ -284,11 +354,15 @@ const startInteractiveExploration = async () => {
     } catch (err) {
       console.error("Visualization error:", err);
     }
-    centerView(); // On centre uniquement au démarrage du mode interactif
+    centerView();
   });
 };
 
 const handleNodeClickInteractive = async (event, d) => {
+  // Toujours empêcher la propagation pour éviter les clics multiples
+  event.stopPropagation();
+  event.preventDefault();
+  
   if (!isInteractiveMode.value) {
     const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
     const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
@@ -297,7 +371,9 @@ const handleNodeClickInteractive = async (event, d) => {
     return;
   }
 
-  event.stopPropagation();
+  if (isInteractiveMode.value && !timerStart.value) {
+    startTimer();
+  }
 
   try {
     isLoading.value = true;
@@ -324,13 +400,35 @@ const handleNodeClickInteractive = async (event, d) => {
       });
     }
 
+    // Vérifier si on a atteint la cible
+    if (
+      selectedTarget.value &&
+      (result.node.id === selectedTarget.value.id || result.node.title === selectedTarget.value.title)
+    ) {
+      targetFound.value = true;
+      stopTimer();
+      notification.value = {
+        show: true,
+        type: "success",
+        title: "Congratulations!",
+        message: `You reached the target article!`,
+        stats: {
+          clicks: Math.max(0, explorationPath.value.length - 1),
+          time: formatMsToMinutesSeconds(elapsedMs.value),
+        },
+        showPlayAgain: true,
+      };
+    }
+
     const pathNodes = explorationPath.value.map((node, index) => ({
       id: node.id || node.title,
       title: node.title,
       inPath: true,
       isExplorationRoot: index === 0,
       isCurrentNode: index === explorationPath.value.length - 1,
-      // On garde la position actuelle pour éviter le saut
+      isTargetNode: selectedTarget.value && 
+                    (node.id === selectedTarget.value.id || 
+                     node.title === selectedTarget.value.title),
       x: d.x,
       y: d.y
     }));
@@ -339,7 +437,7 @@ const handleNodeClickInteractive = async (event, d) => {
       id: neighbor.id,
       title: neighbor.title,
       isNeighbor: true,
-      x: d.x, // Apparaissent près du nœud cliqué
+      x: d.x,
       y: d.y
     }));
 
@@ -365,7 +463,6 @@ const handleNodeClickInteractive = async (event, d) => {
     nextTick(() => {
       try {
         updateVisualization();
-        // centerView() A ÉTÉ SUPPRIMÉ ICI pour éviter le repositionnement forcé
       } catch (err) {
         console.error("Visualization error:", err);
       }
@@ -387,6 +484,8 @@ const clearVisualization = () => {
   searchQuery.value = "";
   isInteractiveMode.value = false;
   explorationPath.value = [];
+  targetFound.value = false;
+  resetTimer();
   
   if (svg) {
     try {
@@ -553,6 +652,7 @@ const updateVisualization = () => {
     .append("circle")
     .attr("class", "node")
     .attr("r", (d) => {
+      if (d.isTargetNode && targetFound.value) return 16; // Plus gros pour la cible trouvée!
       if (d.isExplorationRoot) return 14;
       if (d.isCurrentNode) return 12;
       if (d.inPath) return 10;
@@ -561,11 +661,14 @@ const updateVisualization = () => {
       return 8;
     })
     .attr("fill", (d) => {
-      if (d.isExplorationRoot) return "#9C27B0";
-      if (d.isCurrentNode) return "#FF9800";
-      if (d.inPath) return "#ff6b6b";
-      if (d.isNeighbor) return "#69b3a2";
+      // Mode Tree (Interactive)
+      if (d.isTargetNode && targetFound.value) return "#FFD700"; // Or brillant pour la cible trouvée!
+      if (d.isExplorationRoot) return "#4CAF50"; // Même vert que source en Find Path
+      if (d.isCurrentNode) return "#ff6b6b"; // Même rouge que le chemin
+      if (d.inPath) return "#ff6b6b"; // Rouge pour le chemin parcouru
+      if (d.isNeighbor) return "#69b3a2"; // Voisins en vert-bleu
       
+      // Mode Find Path
       const pathIds = new Set(path.value);
       if (pathIds.has(d.id)) {
         if (selectedTarget.value && d.id === selectedTarget.value.id) return "#2196F3";
@@ -618,7 +721,7 @@ const updateVisualization = () => {
 
   simulation.nodes(nodes.value);
   simulation.force("link").links(links.value);
-  simulation.alpha(0.3).restart(); // On réduit l'alpha pour une transition plus douce
+  simulation.alpha(0.3).restart();
 
   simulation.on("tick", () => {
     linkElements
@@ -668,7 +771,6 @@ onBeforeUnmount(() => {
   }
 });
 </script>
-
 
 <style scoped>
 .graph-visualization {
@@ -898,9 +1000,10 @@ onBeforeUnmount(() => {
 }
 
 .btn-action.btn-secondary.btn-active {
-  background: #FF9800;
+  background: #ff6b6b;
   color: white;
   font-weight: 700;
+  border: 2px solid #ff5252;
 }
 
 .btn-action.btn-clear {
@@ -925,16 +1028,15 @@ onBeforeUnmount(() => {
   line-height: 1.4;
 }
 
-.path-display {
+.target-hint {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
   border-top: 1px solid #c2e2fa;
   font-size: 0.75rem;
-  font-weight: 600;
-  color: #FF9800;
-  overflow-x: auto;
-  white-space: nowrap;
+  color: #2196F3;
 }
+
+/* .path-display removed — interactive path displayed inline in visualization */
 
 .message {
   padding: 0.6rem 0.8rem;
@@ -1001,6 +1103,16 @@ onBeforeUnmount(() => {
   stroke-width: 3px;
 }
 
+/* Animation pour le nœud cible trouvé */
+@keyframes glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 5px #FFD700) drop-shadow(0 0 10px #FFD700);
+  }
+  50% {
+    filter: drop-shadow(0 0 10px #FFD700) drop-shadow(0 0 20px #FFD700);
+  }
+}
+
 .label {
   pointer-events: all;
   cursor: pointer;
@@ -1036,5 +1148,4 @@ onBeforeUnmount(() => {
 .search-results::-webkit-scrollbar-thumb:hover {
   background: #a8d5f7;
 }
-
 </style>
