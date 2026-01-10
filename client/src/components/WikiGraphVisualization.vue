@@ -136,7 +136,6 @@
     <div ref="graphContainer" class="graph-container"></div>
   </div>
 </template>
-
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import * as d3 from "d3";
@@ -260,10 +259,6 @@ const getRandomAndBuildGraph = async () => {
   }
 };
 
-/**
- * Start interactive exploration mode
- * Shows only the source node initially
- */
 const startInteractiveExploration = async () => {
   if (!selectedSource.value) return;
   
@@ -289,17 +284,12 @@ const startInteractiveExploration = async () => {
     } catch (err) {
       console.error("Visualization error:", err);
     }
-    centerView();
+    centerView(); // On centre uniquement au démarrage du mode interactif
   });
 };
 
-/**
- * Handle node click in interactive mode
- * Expands the clicked node's neighbors
- */
 const handleNodeClickInteractive = async (event, d) => {
   if (!isInteractiveMode.value) {
-    // Normal mode: open Wikipedia
     const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
     const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
     const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
@@ -307,7 +297,6 @@ const handleNodeClickInteractive = async (event, d) => {
     return;
   }
 
-  // Interactive mode: expand neighbors
   event.stopPropagation();
 
   try {
@@ -322,40 +311,40 @@ const handleNodeClickInteractive = async (event, d) => {
       return;
     }
 
-    // Find if clicked node is in current path
     const clickedIndex = explorationPath.value.findIndex(
       n => (n.id || n.title) === (d.id || d.title)
     );
 
     if (clickedIndex !== -1) {
-      // Clicked on a node in the path - truncate path and show its neighbors
       explorationPath.value = explorationPath.value.slice(0, clickedIndex + 1);
     } else {
-      // Clicked on a neighbor - add to path
       explorationPath.value.push({
         id: result.node.id,
         title: result.node.title,
       });
     }
 
-    // Build nodes: path + neighbors of clicked node
     const pathNodes = explorationPath.value.map((node, index) => ({
       id: node.id || node.title,
       title: node.title,
       inPath: true,
       isExplorationRoot: index === 0,
       isCurrentNode: index === explorationPath.value.length - 1,
+      // On garde la position actuelle pour éviter le saut
+      x: d.x,
+      y: d.y
     }));
 
     const neighborNodes = result.neighbors.map(neighbor => ({
       id: neighbor.id,
       title: neighbor.title,
       isNeighbor: true,
+      x: d.x, // Apparaissent près du nœud cliqué
+      y: d.y
     }));
 
     nodes.value = [...pathNodes, ...neighborNodes];
 
-    // Build links: path links + neighbor links
     const pathLinks = [];
     for (let i = 0; i < explorationPath.value.length - 1; i++) {
       pathLinks.push({
@@ -376,10 +365,10 @@ const handleNodeClickInteractive = async (event, d) => {
     nextTick(() => {
       try {
         updateVisualization();
+        // centerView() A ÉTÉ SUPPRIMÉ ICI pour éviter le repositionnement forcé
       } catch (err) {
         console.error("Visualization error:", err);
       }
-      centerView();
     });
 
   } catch (err) {
@@ -502,17 +491,17 @@ const initVisualization = () => {
       d3
         .forceLink()
         .id((d) => d.id)
-        .distance(100)
+        .distance((d) => (d && d.isPath ? 60 : 100))
+        .strength((d) => (d && d.isPath ? 1 : 0.2))
     )
-    .force("charge", d3.forceManyBody().strength(-300))
+    .force("charge", d3.forceManyBody().strength((d) => (d && d.inPath ? -80 : -300)))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collision", d3.forceCollide().radius(30));
+    .force("collision", d3.forceCollide().radius((d) => (d && d.inPath ? 20 : 30)));
 };
 
 const updateVisualization = () => {
   if (!svg || !g || nodes.value.length === 0) return;
 
-  // Update links
   const linkSelection = g
     .selectAll(".link")
     .data(
@@ -555,7 +544,6 @@ const updateVisualization = () => {
     })
     .merge(linkSelection);
 
-  // Update nodes
   const nodeSelection = g.selectAll(".node").data(nodes.value, (d) => d.id);
 
   nodeSelection.exit().remove();
@@ -573,10 +561,10 @@ const updateVisualization = () => {
       return 8;
     })
     .attr("fill", (d) => {
-      if (d.isExplorationRoot) return "#9C27B0"; // Purple for root
-      if (d.isCurrentNode) return "#FF9800"; // Orange for current
-      if (d.inPath) return "#ff6b6b"; // Red for path
-      if (d.isNeighbor) return "#69b3a2"; // Green for neighbors
+      if (d.isExplorationRoot) return "#9C27B0";
+      if (d.isCurrentNode) return "#FF9800";
+      if (d.inPath) return "#ff6b6b";
+      if (d.isNeighbor) return "#69b3a2";
       
       const pathIds = new Set(path.value);
       if (pathIds.has(d.id)) {
@@ -602,7 +590,6 @@ const updateVisualization = () => {
 
   nodeElements = nodeEnter.merge(nodeSelection);
 
-  // Update labels
   const labelSelection = g.selectAll(".label").data(nodes.value, (d) => d.id);
 
   labelSelection.exit().remove();
@@ -629,10 +616,9 @@ const updateVisualization = () => {
 
   labelElements = labelEnter.merge(labelSelection);
 
-  // Update simulation
   simulation.nodes(nodes.value);
   simulation.force("link").links(links.value);
-  simulation.alpha(1).restart();
+  simulation.alpha(0.3).restart(); // On réduit l'alpha pour une transition plus douce
 
   simulation.on("tick", () => {
     linkElements
@@ -682,6 +668,7 @@ onBeforeUnmount(() => {
   }
 });
 </script>
+
 
 <style scoped>
 .graph-visualization {
