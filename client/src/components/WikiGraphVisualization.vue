@@ -1023,20 +1023,6 @@ onBeforeUnmount(() => {
   transform: none !important;
 }
 
-.interactive-info {
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-
-.target-hint {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid #c2e2fa;
-  font-size: 0.75rem;
-  color: #2196F3;
-}
-
-/* .path-display removed — interactive path displayed inline in visualization */
 
 .message {
   padding: 0.6rem 0.8rem;
@@ -1101,16 +1087,6 @@ onBeforeUnmount(() => {
 .node:hover {
   filter: brightness(1.2);
   stroke-width: 3px;
-}
-
-/* Animation pour le nœud cible trouvé */
-@keyframes glow {
-  0%, 100% {
-    filter: drop-shadow(0 0 5px #FFD700) drop-shadow(0 0 10px #FFD700);
-  }
-  50% {
-    filter: drop-shadow(0 0 10px #FFD700) drop-shadow(0 0 20px #FFD700);
-  }
 }
 
 .label {
