@@ -5,18 +5,6 @@
     <section class="hero is-fullheight-with-navbar">
       <div class="hero-body">
         <div class="container has-text-centered">
-          <div class="language-selector-container">
-            <p class="language-label">Choose singleplayer and multiplayer wiki language</p>
-            <div class="language-selector">
-              <button class="language-btn" @click="setLanguage('en')" :class="{ active: currentLanguage === 'en' }">
-                🇬🇧
-              </button>
-              <button class="language-btn" @click="setLanguage('fr')" :class="{ active: currentLanguage === 'fr' }">
-                🇫🇷
-              </button>
-            </div>
-          </div>
-          
           <h1 class="title is-1 main-title">WikiDash</h1>
           <p class="subtitle is-4 subtitle-text">
             Navigate from one Wikipedia article to another in the quickest way
@@ -77,15 +65,6 @@
 
 <script setup>
 import P5Background from "../components/P5Background.vue";
-import { useLanguageStore } from "@/stores/language";
-import { storeToRefs } from "pinia";
-
-const languageStore = useLanguageStore();
-const { currentLanguage } = storeToRefs(languageStore);
-
-function setLanguage(lang) {
-  languageStore.setLanguage(lang);
-}
 </script>
 
 <style scoped>
@@ -137,48 +116,5 @@ function setLanguage(lang) {
 .button[disabled] {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* Language Selector */
-.language-selector-container {
-  margin-bottom: 2rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.language-label {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #555;
-  margin-bottom: 0.5rem;
-}
-
-.language-selector {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-}
-
-.language-btn {
-  background: white;
-  border: 2px solid #C2E2FA;
-  border-radius: 8px;
-  padding: 0.5rem 1rem;
-  font-size: 2rem;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.language-btn:hover {
-  /* No hover effect */
-}
-
-.language-btn.active {
-  border-color: #FF8F8F;
-  border-width: 3px;
-  box-shadow: 0 4px 16px rgba(255, 143, 143, 0.3);
 }
 </style>

@@ -75,15 +75,38 @@
           </div>
         </div>
 
-        <button class="button is-danger is-small" @click="$emit('end-game')">
+        <button class="button is-danger is-small" @click="showConfirmation = true">
           End Game
         </button>
+      </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div v-if="showConfirmation" class="modal is-active">
+      <div class="modal-background" @click="showConfirmation = false"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">End Game?</p>
+        </header>
+        <section class="modal-card-body">
+          <p>Are you sure you want to end the game? All progress will be lost.</p>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-danger" @click="confirmEndGame">
+            Yes, End Game
+          </button>
+          <button class="button" @click="showConfirmation = false">
+            Cancel
+          </button>
+        </footer>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from "vue";
+
 defineProps({
   startArticle: String,
   targetArticle: String,
@@ -96,7 +119,7 @@ defineProps({
   currentSearchMatch: Number,
 });
 
-defineEmits([
+const emit = defineEmits([
   "go-back",
   "go-forward",
   "end-game",
@@ -105,6 +128,13 @@ defineEmits([
   "previous-match",
   "next-match",
 ]);
+
+const showConfirmation = ref(false);
+
+function confirmEndGame() {
+  showConfirmation.value = false;
+  emit("end-game");
+}
 </script>
 
 <style scoped>
@@ -226,6 +256,47 @@ defineEmits([
 .stat-item.timer {
   font-size: 1.25rem;
   color: #3273dc;
+  font-weight: 600;
+}
+
+/* Confirmation Modal */
+.modal-background {
+  background-color: rgba(10, 10, 10, 0.7);
+}
+
+.modal-card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.modal-card-head {
+  background: linear-gradient(135deg, #c2e2fa 0%, #a8d5f7 100%);
+  border-bottom: 2px solid #c2e2fa;
+  padding: 1.25rem;
+}
+
+.modal-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.modal-card-body {
+  padding: 2rem 1.5rem;
+  background: white;
+  font-size: 1rem;
+  color: #333;
+}
+
+.modal-card-foot {
+  background: white;
+  border-top: 1px solid #e8e8e8;
+  padding: 1rem 1.5rem;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.modal-card-foot .button {
   font-weight: 600;
 }
 </style>

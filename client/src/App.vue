@@ -31,17 +31,29 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-import { RouterView } from "vue-router";
+import { ref, watch } from "vue";
+import { RouterView, useRoute } from "vue-router";
 import { useLanguageStore } from "@/stores/language";
 import { storeToRefs } from "pinia";
 import logo from "@/assets/logo.png";
 
+const route = useRoute();
 const hideNavbar = ref(false);
 
 // Pinia language store
 const languageStore = useLanguageStore();
 const { currentLanguage } = storeToRefs(languageStore);
+
+// Watch route changes to ensure navbar visibility is correct
+watch(
+  () => route.path,
+  (newPath) => {
+    // Reset navbar visibility when navigating away from game
+    if (newPath === "/" || newPath === "/explore") {
+      hideNavbar.value = false;
+    }
+  }
+);
 </script>
 
 <style>

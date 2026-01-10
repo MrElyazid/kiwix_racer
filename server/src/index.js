@@ -8,7 +8,6 @@ import { fileURLToPath } from "url";
 
 // Import routes
 import articlesRouter from "./routes/articles.js";
-import gameRouter from "./routes/game.js";
 import pathfindingRouter from "./routes/pathfinding.js";
 
 // Import controllers
@@ -32,7 +31,6 @@ app.use(morgan("dev"));
 
 // Routes
 app.use("/api/articles", articlesRouter);
-app.use("/api/game", gameRouter);
 app.use("/api/pathfinding", pathfindingRouter);
 
 // Special route for article content by path (like /api/article/A/Article_Name)

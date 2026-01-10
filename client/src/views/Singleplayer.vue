@@ -69,7 +69,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, nextTick, onBeforeUnmount, onMounted } from "vue";
+import { useRouter, onBeforeRouteLeave } from "vue-router";
 import axios from "axios";
 import { useLanguageStore } from "@/stores/language";
 import { storeToRefs } from "pinia";
@@ -80,6 +81,7 @@ import ArticleViewer from "../components/singleplayer/ArticleViewer.vue";
 import GameNotification from "../components/singleplayer/GameNotification.vue";
 
 const emit = defineEmits(["game-started", "game-ended"]);
+const router = useRouter();
 
 // Get language from store
 const languageStore = useLanguageStore();
@@ -595,16 +597,12 @@ function endGame(timeUp = false, won = false) {
       showPlayAgain: true,
     };
   } else {
-    // Manual end game - just reset without notification
+    // Manual end game - redirect to home with full reload
     gameStarted.value = false;
     emit("game-ended");
-    startArticle.value = "";
-    targetArticle.value = "";
-    timeLimit.value = 10;
-    currentArticleContent.value = "";
-    currentArticleTitle.value = "";
-    currentArticlePath.value = "";
-    clickCount.value = 0;
+    nextTick(() => {
+      window.location.href = "/";
+    });
   }
 
   // Don't reset game state immediately if showing notification - wait for notification to close
@@ -613,22 +611,18 @@ function endGame(timeUp = false, won = false) {
 function closeNotification() {
   notification.value.show = false;
 
-  // Reset game state after notification closes
+  // Redirect to home page after notification closes with full reload
   gameStarted.value = false;
   emit("game-ended");
-  startArticle.value = "";
-  targetArticle.value = "";
-  timeLimit.value = 10;
-  currentArticleContent.value = "";
-  currentArticleTitle.value = "";
-  currentArticlePath.value = "";
-  clickCount.value = 0;
+  nextTick(() => {
+    window.location.href = "/";
+  });
 }
 
 function playAgain() {
   notification.value.show = false;
 
-  // Reset game state
+  // Reset game state and stay on singleplayer page
   gameStarted.value = false;
   emit("game-ended");
   startArticle.value = "";
@@ -639,6 +633,68 @@ function playAgain() {
   clickCount.value = 0;
   timeRemaining.value = 0;
 }
+
+// Intercept navigation away from the page (including browser back button)
+onBeforeRouteLeave((to, from, next) => {
+  // If game is not active, allow navigation
+  if (!gameStarted.value) {
+    // Force full reload if going to home page
+    if (to.path === "/") {
+      window.location = window.location.origin + "/";
+      return;
+    } else {
+      next();
+    }
+    return;
+  }
+
+  // If game is active, show confirmation
+  const confirmed = window.confirm(
+    "Are you sure you want to leave? Your game progress will be lost."
+  );
+
+  if (confirmed) {
+    // Clean up the game timer before leaving
+    if (gameTimer) {
+      clearInterval(gameTimer);
+      gameTimer = null;
+    }
+    gameStarted.value = false;
+    emit("game-ended");
+    
+    // Force full reload if going to home page
+    if (to.path === "/") {
+      window.location = window.location.origin + "/";
+    } else {
+      next();
+    }
+  } else {
+    // Cancel navigation
+    next(false);
+  }
+});
+
+// Add beforeunload event to catch all page navigation attempts (including full page reloads)
+const handleBeforeUnload = (e) => {
+  if (gameStarted.value) {
+    e.preventDefault();
+    e.returnValue = ""; // Required for Chrome
+    return ""; // For other browsers
+  }
+};
+
+onMounted(() => {
+  window.addEventListener("beforeunload", handleBeforeUnload);
+});
+
+// Cleanup on component unmount
+onBeforeUnmount(() => {
+  window.removeEventListener("beforeunload", handleBeforeUnload);
+  if (gameTimer) {
+    clearInterval(gameTimer);
+    gameTimer = null;
+  }
+});
 </script>
 
 <style scoped>

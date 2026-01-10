@@ -5,6 +5,19 @@
         Singleplayer configuration
       </h1>
 
+      <!-- Language Selector -->
+      <div class="language-selector-container">
+        <p class="language-label">Wikipedia Language</p>
+        <div class="language-selector">
+          <button class="language-btn" @click="setLanguage('en')" :class="{ active: currentLanguage === 'en' }">
+            🇬🇧 English
+          </button>
+          <button class="language-btn" @click="setLanguage('fr')" :class="{ active: currentLanguage === 'fr' }">
+            🇫🇷 Français
+          </button>
+        </div>
+      </div>
+
       <!-- Game Setup -->
       <div class="game-setup">
         <div class="box setup-box">
@@ -107,6 +120,16 @@
 </template>
 
 <script setup>
+import { useLanguageStore } from "@/stores/language";
+import { storeToRefs } from "pinia";
+
+const languageStore = useLanguageStore();
+const { currentLanguage } = storeToRefs(languageStore);
+
+function setLanguage(lang) {
+  languageStore.setLanguage(lang);
+}
+
 defineProps({
   startArticle: String,
   targetArticle: String,
@@ -186,6 +209,54 @@ defineEmits([
   height: 2px;
   background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
   border-radius: 2px;
+}
+
+/* Language Selector */
+.language-selector-container {
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.language-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.language-selector {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.language-btn {
+  background: white;
+  border: 2px solid #C2E2FA;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.language-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.language-btn.active {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-width: 2px;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
 }
 
 .setup-box {
