@@ -45,14 +45,15 @@
     />
 
     <!-- Game In Progress - Full Screen Article -->
-    <ArticleViewer
-      v-if="gameStarted"
-      ref="articleViewerRef"
-      :current-article-title="currentArticleTitle"
-      :current-article-content="currentArticleContent"
-      :loading-article="loadingArticle"
-      @article-click="handleArticleClick"
-    />
+    <div v-if="gameStarted" class="game-wrapper">
+      <ArticleViewer
+        ref="articleViewerRef"
+        :current-article-title="currentArticleTitle"
+        :current-article-content="currentArticleContent"
+        :loading-article="loadingArticle"
+        @article-click="handleArticleClick"
+      />
+    </div>
 
     <!-- Game Notification Modal -->
     <GameNotification
@@ -705,5 +706,14 @@ onBeforeUnmount(() => {
 
 .singleplayer:not(.game-active) {
   padding: 2rem 0;
+}
+
+.game-wrapper {
+  position: fixed;
+  top: 53px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
 }
 </style>

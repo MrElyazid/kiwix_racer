@@ -26,7 +26,7 @@
           <strong>Start:</strong> {{ startArticle }}
         </span>
         <span class="stat-item timer">
-          <strong>⏱</strong> {{ formattedTime }}
+          <strong>Time:</strong> {{ formattedTime }}
         </span>
         <span class="stat-item">
           <strong>Clicks:</strong> {{ clickCount }}
@@ -70,7 +70,7 @@
               @click="$emit('clear-search')"
               title="Clear search (Esc)"
             >
-              ✕
+              Clear
             </button>
           </div>
         </div>
@@ -144,9 +144,9 @@ function confirmEndGame() {
   top: 0;
   left: 0;
   right: 0;
-  background: white;
-  border-bottom: 2px solid #c2e2fa;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-white);
+  border-bottom: 3px solid var(--color-teal);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
   z-index: 30;
   padding: 0.75rem 0;
 }
@@ -166,23 +166,33 @@ function confirmEndGame() {
 }
 
 .nav-button {
-  background: #667eea;
-  color: white;
-  border: none;
-  font-weight: 600;
-  transition: all 0.2s ease;
+  background: var(--color-teal);
+  color: var(--color-white);
+  border: 2px solid var(--color-teal);
+  font-family: 'Chewy', cursive;
+  font-weight: 400;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
 }
 
 .nav-button:hover:not(:disabled) {
-  background: #764ba2;
-  color: white;
+  text-decoration: underline;
+  color: var(--color-white);
+}
+
+.nav-button:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2);
 }
 
 .nav-button:disabled {
   background: #e8e8e8;
+  border-color: #ccc;
   color: #999;
   cursor: not-allowed;
   opacity: 0.6;
+  box-shadow: none;
 }
 
 /* Search Container */
@@ -195,9 +205,11 @@ function confirmEndGame() {
 
 .search-input {
   width: 200px;
-  border-color: #667eea;
+  border: 2px solid #2ec4b6;
+  font-family: 'Google Sans Code', 'Courier New', monospace;
   font-size: 0.875rem;
-  background-color: white;
+  font-weight: 400;
+  background-color: var(--color-white);
   color: #1a1a1a;
 }
 
@@ -206,13 +218,14 @@ function confirmEndGame() {
 }
 
 .search-input:focus {
-  border-color: #764ba2;
-  box-shadow: 0 0 0 0.125em rgba(102, 126, 234, 0.25);
+  border-color: #ff9f1c;
+  box-shadow: none;
 }
 
 .search-count {
+  font-family: 'DynaPuff', cursive;
   font-size: 0.75rem;
-  color: #667eea;
+  color: var(--color-teal);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -223,27 +236,39 @@ function confirmEndGame() {
 }
 
 .search-nav-btn {
-  background: #667eea;
-  color: white;
-  border: none;
+  background: var(--color-teal);
+  color: var(--color-white);
+  border: 2px solid var(--color-teal);
   padding: 0.25rem 0.5rem;
-  font-weight: 600;
+  font-family: 'Chewy', cursive;
+  font-weight: 400;
   min-width: 28px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+  transition: all 0.15s ease;
 }
 
 .search-nav-btn:hover:not(:disabled) {
-  background: #764ba2;
-  color: white;
+  text-decoration: underline;
+  color: var(--color-white);
+}
+
+.search-nav-btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .search-nav-btn:disabled {
   background: #e8e8e8;
+  border-color: #ccc;
   color: #999;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 .stat-item {
+  font-family: 'Google Sans Code', 'Courier New', monospace;
   font-size: 0.95rem;
+  font-weight: 400;
   color: #1a1a1a;
   white-space: nowrap;
 }
@@ -255,7 +280,7 @@ function confirmEndGame() {
 
 .stat-item.timer {
   font-size: 1.25rem;
-  color: #3273dc;
+  color: #2ec4b6;
   font-weight: 600;
 }
 
@@ -265,38 +290,43 @@ function confirmEndGame() {
 }
 
 .modal-card {
-  border-radius: 12px;
   overflow: hidden;
+  border: 3px solid var(--color-primary);
+  box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.2);
 }
 
 .modal-card-head {
-  background: linear-gradient(135deg, #c2e2fa 0%, #a8d5f7 100%);
-  border-bottom: 2px solid #c2e2fa;
+  background: var(--color-secondary);
+  border-bottom: 3px solid var(--color-primary);
   padding: 1.25rem;
 }
 
 .modal-card-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-family: 'Bagel Fat One', cursive;
+  font-size: 1.5rem;
   color: #1a1a1a;
 }
 
 .modal-card-body {
   padding: 2rem 1.5rem;
-  background: white;
+  background: var(--color-white);
+  font-family: 'DynaPuff', cursive;
   font-size: 1rem;
+  font-weight: 400;
   color: #333;
 }
 
 .modal-card-foot {
-  background: white;
-  border-top: 1px solid #e8e8e8;
+  background: var(--color-white);
+  border-top: 2px solid var(--color-teal);
   padding: 1rem 1.5rem;
   justify-content: flex-end;
   gap: 0.75rem;
 }
 
 .modal-card-foot .button {
-  font-weight: 600;
+  font-family: 'Chewy', cursive;
+  font-weight: 400;
+  font-size: 1rem;
 }
 </style>

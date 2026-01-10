@@ -1,8 +1,12 @@
 import express from "express";
+import { getRandomArticle, getArticleByTitle } from "../controllers/articlesController.js";
 
 const router = express.Router();
 
-// Note: Article fetching is handled by the article route in index.js
-// This file can be used for future article-related endpoints
+// Get a random article
+router.get("/random", getRandomArticle);
+
+// Get article by title
+router.get("/:title", getArticleByTitle);
 
 export default router;

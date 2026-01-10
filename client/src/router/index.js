@@ -19,6 +19,16 @@ const router = createRouter({
       name: "explore",
       component: () => import("../views/Explore.vue"),
     },
+    {
+      path: "/multiplayer",
+      name: "multiplayer",
+      component: () => import("../views/Multiplayer.vue"),
+    },
+    {
+      path: "/multiplayer-demo",
+      name: "multiplayer-demo",
+      component: () => import("../views/MultiplayerDemo.vue"),
+    },
   ],
 });
 

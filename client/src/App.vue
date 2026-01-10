@@ -64,28 +64,33 @@ watch(
 }
 
 .navbar.is-transparent {
-  background-color: rgba(230, 245, 255, 0.95) !important;
+  background-color: var(--color-white) !important;
   backdrop-filter: blur(10px);
-  border-bottom: 2px solid #C2E2FA;
+  border-bottom: 3px solid #2ec4b6;
   padding: 0.5rem 0;
-  box-shadow: 0 2px 10px rgba(194, 226, 250, 0.2);
+  box-shadow: none;
 }
 
 .navbar-item {
   font-size: 1.1rem;
   font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
-  color: #2c3e50;
-  border-radius: 8px;
+  font-family: 'Chewy', cursive;
+  color: #2ec4b6;
+  border-radius: 0;
   margin: 0 0.25rem;
-  transition: all 0.3s ease;
+  transition: none;
+}
+
+.navbar-item:hover {
+  text-decoration: underline;
+  background-color: transparent !important;
 }
 
 .navbar-brand .navbar-item strong {
   font-family: 'Bagel Fat One', cursive;
   font-size: 1.8rem;
   font-weight: 400;
-  color: #2c3e50;
+  color: #2ec4b6;
   letter-spacing: 1px;
 }
 

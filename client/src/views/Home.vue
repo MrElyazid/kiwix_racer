@@ -20,7 +20,7 @@
                     Choose starting and target articles, then race to find the
                     path between them
                   </p>
-                  <router-link to="/singleplayer" class="button is-primary is-fullwidth">
+                  <router-link to="/singleplayer" class="button game-button is-fullwidth">
                     Start Game
                   </router-link>
                 </div>
@@ -35,9 +35,9 @@
                     Race against other players in real-time Wiki navigation
                     challenges
                   </p>
-                  <button class="button is-fullwidth" disabled>
-                    Coming Soon
-                  </button>
+                  <router-link to="/multiplayer" class="button game-button is-fullwidth">
+                    Play Online
+                  </router-link>
                 </div>
               </div>
             </div>
@@ -50,7 +50,7 @@
                     Browse Wikipedia datasets and visualize graph traversal
                     algorithms
                   </p>
-                  <router-link to="/explore" class="button is-info is-fullwidth">
+                  <router-link to="/explore" class="button game-button is-fullwidth">
                     Explore
                   </router-link>
                 </div>
@@ -76,20 +76,22 @@ import P5Background from "../components/P5Background.vue";
 .main-title {
   font-size: 4rem;
   font-weight: 900;
-  color: #222;
+  font-family: 'Bagel Fat One', cursive;
+  color: #2ec4b6;
   letter-spacing: 2px;
 }
 
 .subtitle-text {
   color: #333;
+  font-family: 'Chewy', cursive;
 }
 
 .game-card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 0;
+  box-shadow: none;
   height: 100%;
-  border: 2px solid #C2E2FA;
+  border: 3px solid #2ec4b6;
 }
 
 .game-card:hover {
@@ -101,11 +103,13 @@ import P5Background from "../components/P5Background.vue";
 }
 
 .card-title {
-  color: #1a1a1a;
+  color: #2ec4b6;
+  font-family: 'Chewy', cursive;
 }
 
 .card-text {
   color: #2a2a2a;
+  font-family: 'Google Sans Code', 'Courier New', monospace;
 }
 
 .card-content .content {
@@ -116,5 +120,21 @@ import P5Background from "../components/P5Background.vue";
 .button[disabled] {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.game-button {
+  background-color: #2ec4b6 !important;
+  color: white !important;
+  border: 3px solid #2ec4b6 !important;
+  border-radius: 0 !important;
+  font-family: 'Chewy', cursive !important;
+  font-size: 1.1rem !important;
+  padding: 0.75rem 1.5rem !important;
+  transition: none !important;
+}
+
+.game-button:hover {
+  text-decoration: underline;
+  background-color: #2ec4b6 !important;
 }
 </style>
