@@ -661,19 +661,20 @@ const initVisualization = () => {
 
   svg.call(zoom);
 
-  simulation = d3
-    .forceSimulation()
-    .force(
-      "link",
-      d3
-        .forceLink()
-        .id((d) => d.id)
-        .distance((d) => (d && d.isPath ? 60 : 100))
-        .strength((d) => (d && d.isPath ? 1 : 0.2))
-    )
-    .force("charge", d3.forceManyBody().strength((d) => (d && d.inPath ? -80 : -300)))
-    .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collision", d3.forceCollide().radius((d) => (d && d.inPath ? 20 : 30)));
+  // Dans WikiGraphVisualization.vue
+simulation = d3
+  .forceSimulation()
+  .force(
+    "link",
+    d3
+      .forceLink()
+      .id((d) => d.id)
+      .distance(150) // Augmentez cette valeur (ex: 150 au lieu de 60/100)
+      .strength(0.5)
+  )
+  .force("charge", d3.forceManyBody().strength(-1000)) // Répulsion beaucoup plus forte
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force("collision", d3.forceCollide().radius(50)); // Empêche le chevauchement des étiquettes
 };
 
 const updateVisualization = () => {
