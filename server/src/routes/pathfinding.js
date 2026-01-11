@@ -6,6 +6,7 @@ import {
   searchPages,
   getRandomArticle,
   getDatabaseStats,
+  getNeighbors,
 } from "../controllers/pathfindingController.js";
 
 const router = express.Router();
@@ -15,6 +16,9 @@ router.post("/find-path", findPath);
 
 // Build graph structure around an article
 router.post("/build-graph", buildGraph);
+
+// Get neighbors of a specific node
+router.post("/get-neighbors", getNeighbors);
 
 // Look up a page by title
 router.get("/page", lookupPage);

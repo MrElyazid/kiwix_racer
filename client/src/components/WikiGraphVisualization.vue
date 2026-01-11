@@ -69,6 +69,15 @@
               {{ isLoading ? "Finding..." : "Find Path" }}
             </button>
             <button
+              @click="startInteractiveExploration"
+              :disabled="!selectedSource || isLoading"
+              class="btn-action btn-secondary"
+              :class="{ 'btn-active': isInteractiveMode }"
+              title="Interactive exploration mode"
+            >
+              {{ isInteractiveMode ? "Exploring..." : "GameTree" }}
+            </button>
+            <button
               @click="buildGraph"
               :disabled="!selectedSource || isLoading"
               class="btn-action btn-secondary"
@@ -115,6 +124,46 @@
 
     <!-- Fullscreen Graph Container -->
     <div ref="graphContainer" class="graph-container"></div>
+    
+    <!-- Use shared GameNotification modal for congratulations -->
+    <GameNotification
+      :show="notification.show"
+      :type="notification.type"
+      :title="notification.title"
+      :message="notification.message"
+      :stats="notification.stats"
+      :show-play-again="notification.showPlayAgain"
+      @close="closeNotification"
+      @play-again="playAgain"
+    />
+
+    <!-- Exploration Path Timeline (below control panel) -->
+    <div
+      v-if="isInteractiveMode && explorationPath.length > 0"
+      class="exploration-timeline"
+    >
+      <div class="timeline-header">
+        <span class="timeline-title">Path History</span>
+      </div>
+      <div class="timeline-items">
+        <div
+          v-for="(node, index) in explorationPath"
+          :key="index"
+          @click="jumpToNode(node, index)"
+          class="timeline-item"
+          :class="{
+            'is-root': index === 0,
+            'is-current': index === explorationPath.length - 1,
+            'is-target': selectedTarget && node.title === selectedTarget.title
+          }"
+        >
+          <div class="timeline-number">{{ index }}</div>
+          <div class="timeline-content">
+            <div class="timeline-node-title">{{ node.title }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -122,12 +171,75 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from "vue";
 import * as d3 from "d3";
 import { useGraphVisualization } from "@/composables/useGraphVisualization";
+import GameNotification from "@/components/singleplayer/GameNotification.vue";
 
 const graphContainer = ref(null);
 const searchQuery = ref("");
 const selectedSource = ref(null);
 const selectedTarget = ref(null);
 const isPanelCollapsed = ref(false);
+
+// Interactive exploration state
+const isInteractiveMode = ref(false);
+const explorationPath = ref([]);
+const maxNeighbors = 200; // default neighbor limit
+const targetFound = ref(false);
+const notification = ref({
+  show: false,
+  type: "info",
+  title: "",
+  message: "",
+  stats: null,
+  showPlayAgain: false,
+});
+
+const timerStart = ref(null);
+const elapsedMs = ref(0);
+let timerIntervalId = null;
+
+function startTimer() {
+  if (timerStart.value) return;
+  timerStart.value = Date.now();
+  elapsedMs.value = 0;
+  timerIntervalId = setInterval(() => {
+    elapsedMs.value = Date.now() - timerStart.value;
+  }, 100);
+}
+
+function stopTimer() {
+  if (timerIntervalId) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+  if (timerStart.value) {
+    elapsedMs.value = Date.now() - timerStart.value;
+  }
+  timerStart.value = null;
+}
+
+function resetTimer() {
+  stopTimer();
+  elapsedMs.value = 0;
+}
+
+function formatMsToMinutesSeconds(ms) {
+  const totalSeconds = Math.floor((ms || 0) / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function closeNotification() {
+  notification.value.show = false;
+  targetFound.value = false;
+  resetTimer();
+}
+
+function playAgain() {
+  notification.value.show = false;
+  clearVisualization();
+  resetTimer();
+}
 
 const {
   nodes,
@@ -140,6 +252,7 @@ const {
   graphInfo,
   buildGraph: buildGraphAPI,
   findPath: findPathAPI,
+  getNeighbors: getNeighborsAPI,
   searchArticles: searchArticlesAPI,
   getRandomArticle,
   clearGraph,
@@ -159,51 +272,42 @@ const canFindPath = computed(
 );
 
 const searchArticles = async () => {
-  // Clear previous timeout
   if (searchTimeout) {
     clearTimeout(searchTimeout);
   }
 
-  // If search is empty, clear results
   if (!searchQuery.value.trim()) {
     searchResults.value = [];
     return;
   }
 
-  // Debounce search by 300ms
   searchTimeout = setTimeout(async () => {
     await searchArticlesAPI(searchQuery.value);
   }, 300);
 };
 
-// New: polite input handler that replaces spaces with underscores
 const onSearchInput = (e) => {
   const el = e.target;
   const old = el.value;
   const caretPos = el.selectionStart;
 
-  // Replace any whitespace sequence with a single underscore
   const newVal = old.replace(/\s+/g, "_");
 
   if (newVal !== old) {
-    // Update the reactive value
     searchQuery.value = newVal;
-
-    // After DOM update, reposition caret to account for replacement
     nextTick(() => {
       const diff = newVal.length - old.length;
       const newPos = Math.max(0, caretPos + diff);
       try {
         el.setSelectionRange(newPos, newPos);
       } catch (err) {
-        // ignore if element not focusable
+        // ignore
       }
     });
   } else {
     searchQuery.value = newVal;
   }
 
-  // Trigger the (debounced) search using the updated value
   searchArticles();
 };
 
@@ -221,12 +325,22 @@ const selectArticle = (article) => {
 };
 
 const findPath = async () => {
-  if (!canFindPath.value) return;
+  if (!canFindPath.value || isLoading.value) return;
+  
+  // Désactiver le mode interactif
+  isInteractiveMode.value = false;
+  explorationPath.value = [];
+  
   await findPathAPI(selectedSource.value.title, selectedTarget.value.title);
 };
 
 const buildGraph = async () => {
-  if (!selectedSource.value) return;
+  if (!selectedSource.value || isLoading.value) return;
+  
+  // Désactiver le mode interactif
+  isInteractiveMode.value = false;
+  explorationPath.value = [];
+  
   await buildGraphAPI(selectedSource.value.title, 2, 100);
 };
 
@@ -234,7 +348,209 @@ const getRandomAndBuildGraph = async () => {
   const article = await getRandomArticle();
   if (article) {
     selectedSource.value = article;
+    isInteractiveMode.value = false;
+    explorationPath.value = [];
     await buildGraphAPI(article.title, 2, 100);
+  }
+};
+
+const startInteractiveExploration = async () => {
+  if (!selectedSource.value) return;
+  
+  clearGraph();
+  clearPath();
+  resetTimer();
+  isInteractiveMode.value = true;
+  targetFound.value = false;
+  explorationPath.value = [selectedSource.value];
+
+  nodes.value = [
+    {
+      id: selectedSource.value.id || selectedSource.value.title,
+      title: selectedSource.value.title,
+      isExplorationRoot: true,
+      inPath: true,
+    },
+  ];
+  links.value = [];
+
+  nextTick(() => {
+    try {
+      updateVisualization();
+    } catch (err) {
+      console.error("Visualization error:", err);
+    }
+    centerView();
+  });
+};
+
+const jumpToNode = async (node, index) => {
+  if (!isInteractiveMode.value) return;
+  
+  try {
+    isLoading.value = true;
+    error.value = null;
+
+    const result = await getNeighborsAPI(node.title, maxNeighbors);
+
+    if (!result || !result.neighbors || result.neighbors.length === 0) {
+      error.value = "No neighbors found for this article";
+      isLoading.value = false;
+      return;
+    }
+
+    // Tronquer le chemin à ce point
+    explorationPath.value = explorationPath.value.slice(0, index + 1);
+
+    // Mettre à jour la visualisation
+    await updateExplorationVisualization(result);
+  } catch (err) {
+    error.value = err.message || "Failed to jump to node";
+    console.error("Error jumping to node:", err);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const updateExplorationVisualization = async (result) => {
+  // Vérifier si on a atteint la cible
+  if (
+    selectedTarget.value &&
+    result.node.title === selectedTarget.value.title
+  ) {
+    targetFound.value = true;
+    stopTimer();
+    notification.value = {
+      show: true,
+      type: "success",
+      title: "Congratulations!",
+      message: `You reached the target article!`,
+      stats: {
+        clicks: Math.max(0, explorationPath.value.length - 1),
+        time: formatMsToMinutesSeconds(elapsedMs.value),
+      },
+      showPlayAgain: true,
+    };
+  }
+
+  // Créer les nœuds du chemin
+  const pathNodes = explorationPath.value.map((node, index) => ({
+    id: node.id || node.title,
+    title: node.title,
+    inPath: true,
+    isExplorationRoot: index === 0,
+    isCurrentNode: index === explorationPath.value.length - 1,
+    isTargetNode: selectedTarget.value && 
+                  node.title === selectedTarget.value.title,
+  }));
+
+  // Créer les nœuds voisins
+  const neighborNodes = result.neighbors.map(neighbor => ({
+    id: neighbor.id,
+    title: neighbor.title,
+    isNeighbor: true,
+  }));
+
+  nodes.value = [...pathNodes, ...neighborNodes];
+
+  const pathLinks = [];
+  for (let i = 0; i < explorationPath.value.length - 1; i++) {
+    pathLinks.push({
+      source: explorationPath.value[i].id || explorationPath.value[i].title,
+      target: explorationPath.value[i + 1].id || explorationPath.value[i + 1].title,
+      isPath: true,
+    });
+  }
+
+  const neighborLinks = result.links.map(link => ({
+    source: link.source,
+    target: link.target,
+    isNeighborLink: true,
+  }));
+
+  links.value = [...pathLinks, ...neighborLinks];
+
+  nextTick(() => {
+    try {
+      updateVisualization();
+    } catch (err) {
+      console.error("Visualization error:", err);
+    }
+  });
+};
+
+const handleNodeClickInteractive = async (event, d) => {
+  // Toujours empêcher la propagation pour éviter les clics multiples
+  event.stopPropagation();
+  event.preventDefault();
+  
+  if (!isInteractiveMode.value) {
+    const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
+    const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
+    const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
+    window.open(url, "_blank");
+    return;
+  }
+
+  if (isInteractiveMode.value && !timerStart.value) {
+    startTimer();
+  }
+
+  try {
+    isLoading.value = true;
+    error.value = null;
+
+    const result = await getNeighborsAPI(d.title, maxNeighbors);
+
+    if (!result || !result.neighbors || result.neighbors.length === 0) {
+      error.value = "No neighbors found for this article";
+      isLoading.value = false;
+      return;
+    }
+
+    // Trouver l'index du nœud cliqué dans le chemin en utilisant le titre comme clé unique
+    const clickedIndex = explorationPath.value.findIndex(
+      n => n.title === d.title
+    );
+
+    if (clickedIndex !== -1) {
+      // Si le nœud cliqué est déjà dans le chemin, tronquer le chemin à ce point
+      explorationPath.value = explorationPath.value.slice(0, clickedIndex + 1);
+    } else {
+      // Sinon, ajouter le nouveau nœud au chemin
+      explorationPath.value.push({
+        id: result.node.id,
+        title: result.node.title,
+      });
+    }
+
+    // Vérifier si on a atteint la cible
+    if (
+      selectedTarget.value &&
+      result.node.title === selectedTarget.value.title
+    ) {
+      targetFound.value = true;
+      stopTimer();
+      notification.value = {
+        show: true,
+        type: "success",
+        title: "Congratulations!",
+        message: `You reached the target article!`,
+        stats: {
+          clicks: Math.max(0, explorationPath.value.length - 1),
+          time: formatMsToMinutesSeconds(elapsedMs.value),
+        },
+        showPlayAgain: true,
+      };
+    }
+
+    // Mettre à jour la visualisation
+    await updateExplorationVisualization(result);
+  } catch (err) {
+    error.value = err.message || "Failed to get neighbors";
+    console.error("Error getting neighbors:", err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -244,24 +560,34 @@ const clearVisualization = () => {
   selectedSource.value = null;
   selectedTarget.value = null;
   searchQuery.value = "";
+  isInteractiveMode.value = false;
+  explorationPath.value = [];
+  targetFound.value = false;
+  resetTimer();
+  
+  if (simulation) {
+    try {
+      simulation.stop();
+      simulation.on("tick", null); // Remove tick handler
+    } catch (err) {
+      // ignore
+    }
+    simulation = null;
+  }
+  
   if (svg) {
     try {
+      // Remove all event listeners and child elements
+      svg.selectAll("*").remove();
       svg.remove();
     } catch (err) {
+      // ignore
     }
     svg = null;
     g = null;
     linkElements = null;
     nodeElements = null;
     labelElements = null;
-
-    if (simulation) {
-      try {
-        simulation.stop();
-      } catch (err) {
-      }
-      simulation = null;
-    }
 
     nextTick(() => {
       initVisualization();
@@ -275,13 +601,11 @@ const centerView = () => {
   const width = graphContainer.value.clientWidth;
   const height = graphContainer.value.clientHeight;
 
-  // Reset zoom to center
   svg
     .transition()
     .duration(750)
     .call(d3.zoom().transform, d3.zoomIdentity.translate(0, 0).scale(1));
 
-  // Restart simulation to re-center nodes
   if (simulation) {
     simulation.force("center", d3.forceCenter(width / 2, height / 2));
     simulation.alpha(0.3).restart();
@@ -301,10 +625,8 @@ const initVisualization = () => {
     .attr("height", height)
     .attr("viewBox", [0, 0, width, height]);
 
-  // Define arrow markers
   const defs = svg.append("defs");
 
-  // Regular arrow marker
   defs
     .append("marker")
     .attr("id", "arrowhead")
@@ -318,7 +640,6 @@ const initVisualization = () => {
     .attr("d", "M0,-5L10,0L0,5")
     .attr("fill", "#999");
 
-  // Path arrow marker (highlighted)
   defs
     .append("marker")
     .attr("id", "arrowhead-path")
@@ -334,7 +655,6 @@ const initVisualization = () => {
 
   g = svg.append("g");
 
-  // Add zoom behavior
   const zoom = d3
     .zoom()
     .scaleExtent([0.1, 4])
@@ -344,25 +664,25 @@ const initVisualization = () => {
 
   svg.call(zoom);
 
-  // Create simulation
-  simulation = d3
-    .forceSimulation()
-    .force(
-      "link",
-      d3
-        .forceLink()
-        .id((d) => d.id)
-        .distance(100)
-    )
-    .force("charge", d3.forceManyBody().strength(-300))
-    .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collision", d3.forceCollide().radius(30));
+  // Dans WikiGraphVisualization.vue
+simulation = d3
+  .forceSimulation()
+  .force(
+    "link",
+    d3
+      .forceLink()
+      .id((d) => d.id)
+      .distance(150) // Augmentez cette valeur (ex: 150 au lieu de 60/100)
+      .strength(0.5)
+  )
+  .force("charge", d3.forceManyBody().strength(-1000)) // Répulsion beaucoup plus forte
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force("collision", d3.forceCollide().radius(50)); // Empêche le chevauchement des étiquettes
 };
 
 const updateVisualization = () => {
   if (!svg || !g || nodes.value.length === 0) return;
 
-  // Update links
   const linkSelection = g
     .selectAll(".link")
     .data(
@@ -377,14 +697,16 @@ const updateVisualization = () => {
     .append("line")
     .attr("class", "link")
     .attr("stroke", (d) => {
+      if (d.isPath) return "#ff6b6b";
+      if (d.isNeighborLink) return "#999";
       const pathIds = new Set(path.value);
       const sourceId = d.source.id || d.source;
       const targetId = d.target.id || d.target;
-      return pathIds.has(sourceId) && pathIds.has(targetId)
-        ? "#ff6b6b"
-        : "#999";
+      return pathIds.has(sourceId) && pathIds.has(targetId) ? "#ff6b6b" : "#999";
     })
     .attr("stroke-width", (d) => {
+      if (d.isPath) return 3;
+      if (d.isNeighborLink) return 1;
       const pathIds = new Set(path.value);
       const sourceId = d.source.id || d.source;
       const targetId = d.target.id || d.target;
@@ -392,6 +714,8 @@ const updateVisualization = () => {
     })
     .attr("stroke-opacity", 0.6)
     .attr("marker-end", (d) => {
+      if (d.isPath) return "url(#arrowhead-path)";
+      if (d.isNeighborLink) return "url(#arrowhead)";
       const pathIds = new Set(path.value);
       const sourceId = d.source.id || d.source;
       const targetId = d.target.id || d.target;
@@ -401,7 +725,6 @@ const updateVisualization = () => {
     })
     .merge(linkSelection);
 
-  // Update nodes
   const nodeSelection = g.selectAll(".node").data(nodes.value, (d) => d.id);
 
   nodeSelection.exit().remove();
@@ -411,21 +734,36 @@ const updateVisualization = () => {
     .append("circle")
     .attr("class", "node")
     .attr("r", (d) => {
+      if (d.isTargetNode && targetFound.value) return 16;
+      if (d.isExplorationRoot) return 14;
+      if (d.isCurrentNode) return 12;
+      if (d.inPath) return 10;
       if (selectedSource.value && d.id === selectedSource.value.id) return 12;
       if (selectedTarget.value && d.id === selectedTarget.value.id) return 12;
       return 8;
     })
     .attr("fill", (d) => {
+      // Mode GameTree (Interactive)
+      if (d.isTargetNode && targetFound.value) return "#FFD700";
+      if (d.isExplorationRoot) return "#4CAF50";
+      if (d.isCurrentNode) return "#ff6b6b";
+      if (d.inPath) return "#ff6b6b";
+      if (d.isNeighbor) return "#69b3a2";
+      
+      // Mode Find Path
       const pathIds = new Set(path.value);
-      if (pathIds.has(d.id)) return "#ff6b6b";
-      if (selectedSource.value && d.id === selectedSource.value.id)
-        return "#4CAF50";
-      if (selectedTarget.value && d.id === selectedTarget.value.id)
-        return "#2196F3";
+      if (pathIds.has(d.id)) {
+        if (selectedTarget.value && d.id === selectedTarget.value.id) return "#2196F3";
+        if (selectedSource.value && d.id === selectedSource.value.id) return "#4CAF50";
+        return "#ff6b6b";
+      }
+      if (selectedSource.value && d.id === selectedSource.value.id) return "#4CAF50";
+      if (selectedTarget.value && d.id === selectedTarget.value.id) return "#2196F3";
       return "#69b3a2";
     })
     .attr("stroke", "#fff")
     .attr("stroke-width", 2)
+    .style("cursor", "pointer")
     .call(
       d3
         .drag()
@@ -433,17 +771,10 @@ const updateVisualization = () => {
         .on("drag", dragged)
         .on("end", dragEnded)
     )
-    .on("click", (event, d) => {
-      // Open Wikipedia article in new tab
-      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
-      const articleTitle = encodeURIComponent( clean(d.title).replace(/ /g, "_"));
-      const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
-      window.open(url, "_blank");
-    });
+    .on("click", handleNodeClickInteractive);
 
   nodeElements = nodeEnter.merge(nodeSelection);
 
-  // Update labels
   const labelSelection = g.selectAll(".label").data(nodes.value, (d) => d.id);
 
   labelSelection.exit().remove();
@@ -454,35 +785,52 @@ const updateVisualization = () => {
     .attr("class", "label")
     .attr("text-anchor", "middle")
     .attr("dy", -15)
-    .attr("font-size", "6px")
+    .attr("font-size", (d) => {
+      if (d.isExplorationRoot || d.isCurrentNode) return "8px";
+      if (d.inPath) return "7px";
+      return "6px";
+    })
+    .attr("font-weight", (d) => {
+      if (d.isExplorationRoot || d.isCurrentNode || d.inPath) return "700";
+      return "500";
+    })
     .attr("fill", "#333")
     .style("cursor", "pointer")
     .text((d) => d.title)
-    .on("click", (event, d) => {
-      // Open Wikipedia article in new tab
-      const clean = (s) => (s ? s.replace(/\\'/g, "'").replace(/\\/g, "") : s);
-      const articleTitle = encodeURIComponent(clean(d.title).replace(/ /g, "_"));
-      const url = `https://en.wikipedia.org/wiki/${articleTitle}`;
-      window.open(url, "_blank");
-    });
+    .on("click", handleNodeClickInteractive);
 
   labelElements = labelEnter.merge(labelSelection);
 
-  // Update simulation
-  simulation.nodes(nodes.value);
-  simulation.force("link").links(links.value);
-  simulation.alpha(1).restart();
+  // Update simulation with proper error handling
+  try {
+    simulation.nodes(nodes.value);
+    simulation.force("link").links(links.value);
+    simulation.alpha(0.3).restart();
+  } catch (err) {
+    console.error("Error updating simulation:", err);
+    return;
+  }
 
   simulation.on("tick", () => {
-    linkElements
-      .attr("x1", (d) => d.source.x)
-      .attr("y1", (d) => d.source.y)
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => d.target.y);
+    try {
+      if (linkElements) {
+        linkElements
+          .attr("x1", (d) => (d.source && d.source.x) || 0)
+          .attr("y1", (d) => (d.source && d.source.y) || 0)
+          .attr("x2", (d) => (d.target && d.target.x) || 0)
+          .attr("y2", (d) => (d.target && d.target.y) || 0);
+      }
 
-    nodeElements.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+      if (nodeElements) {
+        nodeElements.attr("cx", (d) => d.x || 0).attr("cy", (d) => d.y || 0);
+      }
 
-    labelElements.attr("x", (d) => d.x).attr("y", (d) => d.y);
+      if (labelElements) {
+        labelElements.attr("x", (d) => d.x || 0).attr("y", (d) => d.y || 0);
+      }
+    } catch (err) {
+      // Suppress tick errors to prevent spam
+    }
   });
 };
 
@@ -503,11 +851,14 @@ const dragEnded = (event, d) => {
   d.fy = null;
 };
 
-// Watch for changes in graph data
 watch(
   [nodes, links, path],
   () => {
-    updateVisualization();
+    try {
+      updateVisualization();
+    } catch (err) {
+      console.error("Error in visualization watch:", err);
+    }
   },
   { deep: true }
 );
@@ -517,9 +868,39 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (simulation) {
-    simulation.stop();
+  // Clean up timer
+  if (timerIntervalId) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
   }
+  
+  // Clean up simulation
+  if (simulation) {
+    try {
+      simulation.stop();
+      simulation.on("tick", null);
+    } catch (err) {
+      // ignore
+    }
+    simulation = null;
+  }
+  
+  // Clean up SVG
+  if (svg) {
+    try {
+      svg.selectAll("*").remove();
+      svg.remove();
+    } catch (err) {
+      // ignore
+    }
+  }
+  
+  // Clear references
+  svg = null;
+  g = null;
+  linkElements = null;
+  nodeElements = null;
+  labelElements = null;
 });
 </script>
 
@@ -531,7 +912,6 @@ onBeforeUnmount(() => {
   background: #fafafa;
 }
 
-/* Compact Control Panel Overlay */
 .control-panel {
   position: absolute;
   top: 1rem;
@@ -602,7 +982,6 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
 }
 
-/* Search Box */
 .search-box {
   width: 100%;
 }
@@ -622,7 +1001,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 3px rgba(255, 143, 143, 0.1);
 }
 
-/* Search Results */
 .search-results {
   max-height: 180px;
   overflow-y: auto;
@@ -649,7 +1027,6 @@ onBeforeUnmount(() => {
   color: #1a1a1a;
 }
 
-/* Selected Articles */
 .selected-articles {
   display: flex;
   flex-direction: column;
@@ -715,7 +1092,6 @@ onBeforeUnmount(() => {
   transform: scale(1.1);
 }
 
-/* Action Buttons */
 .action-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -755,6 +1131,13 @@ onBeforeUnmount(() => {
   transform: translateY(-2px);
 }
 
+.btn-action.btn-secondary.btn-active {
+  background: #ff6b6b;
+  color: white;
+  font-weight: 700;
+  border: 2px solid #ff5252;
+}
+
 .btn-action.btn-clear {
   background: #ff8f8f;
   color: white;
@@ -772,7 +1155,6 @@ onBeforeUnmount(() => {
   transform: none !important;
 }
 
-/* Status Messages */
 .message {
   padding: 0.6rem 0.8rem;
   border-radius: 8px;
@@ -815,7 +1197,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Fullscreen Graph Container */
 .graph-container {
   position: absolute;
   top: 0;
@@ -825,7 +1206,6 @@ onBeforeUnmount(() => {
   background: white;
 }
 
-/* D3 Graph Elements */
 .link {
   pointer-events: none;
 }
@@ -854,7 +1234,6 @@ onBeforeUnmount(() => {
   fill: #1a1a1a;
 }
 
-/* Scrollbar Styling */
 .panel-content::-webkit-scrollbar,
 .search-results::-webkit-scrollbar {
   width: 6px;
@@ -874,6 +1253,158 @@ onBeforeUnmount(() => {
 
 .panel-content::-webkit-scrollbar-thumb:hover,
 .search-results::-webkit-scrollbar-thumb:hover {
+  background: #a8d5f7;
+}
+
+/* Exploration Timeline Styles */
+.exploration-timeline {
+  position: absolute;
+  top: 1rem;
+  right: 356px; /* Control panel width (320px) + gap (36px) */
+  width: 280px;
+  max-height: calc(100vh - 200px);
+  background: rgba(255, 255, 255, 0.98);
+  border: 2px solid #c2e2fa;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  overflow: hidden;
+  animation: slideInRight 0.3s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #c2e2fa 0%, #a8d5f7 100%);
+  border-bottom: 2px solid #c2e2fa;
+}
+
+.timeline-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.timeline-items {
+  padding: 0.5rem;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  background: white;
+  border: 2px solid #c2e2fa;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.timeline-item:hover {
+  background: #f0f8ff;
+  border-color: #a8d5f7;
+  transform: translateX(-4px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-item.is-root {
+  border-color: #4caf50;
+  background: #f1f8f4;
+}
+
+.timeline-item.is-current {
+  border-color: #ff6b6b;
+  background: #fff5f5;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.2);
+}
+
+.timeline-item.is-target {
+  border-color: #FFD700;
+  background: #fffbf0;
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.2);
+}
+
+.timeline-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  background: #c2e2fa;
+  color: #1a1a1a;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.timeline-item.is-root .timeline-number {
+  background: #4caf50;
+  color: white;
+}
+
+.timeline-item.is-current .timeline-number {
+  background: #ff6b6b;
+  color: white;
+}
+
+.timeline-item.is-target .timeline-number {
+  background: #FFD700;
+  color: #1a1a1a;
+}
+
+.timeline-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.timeline-node-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-item.is-current .timeline-node-title {
+  font-weight: 700;
+}
+
+.timeline-items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.timeline-items::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.timeline-items::-webkit-scrollbar-thumb {
+  background: #c2e2fa;
+  border-radius: 3px;
+}
+
+.timeline-items::-webkit-scrollbar-thumb:hover {
   background: #a8d5f7;
 }
 </style>
