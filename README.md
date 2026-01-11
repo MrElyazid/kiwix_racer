@@ -1,4 +1,4 @@
-# Kiwixracer :
+# wikiDash :
 
 A wikiracing game where the goal is to go from a wikipedia article X to another Y in the quickest way possible.
 
