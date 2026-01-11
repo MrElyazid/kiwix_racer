@@ -38,14 +38,12 @@
         :can-go-forward="canGoForward"
         :search-query="searchQuery"
         :search-matches="searchMatches"
-        :current-search-match="currentSearchMatch"
         @go-back="goBack"
         @go-forward="goForward"
         @end-game="handleTimeUp"
         @update:search-query="handleSearchInput"
         @clear-search="clearSearch"
-        @previous-match="previousMatch"
-        @next-match="nextMatch"
+        @select-first-result="selectFirstSearchResult"
       />
 
       <!-- Main Game Area -->
@@ -112,6 +110,7 @@ import MultiplayerLeaderboard from '../components/multiplayer/MultiplayerLeaderb
 import GameInfoBar from '../components/singleplayer/GameInfoBar.vue'
 import ArticleViewer from '../components/singleplayer/ArticleViewer.vue'
 import GameNotification from '../components/singleplayer/GameNotification.vue'
+import { useFuzzyLinkSearch } from '@/composables/useFuzzyLinkSearch'
 
 const router = useRouter()
 const languageStore = useLanguageStore()
@@ -151,10 +150,10 @@ const timeRemaining = ref(null)
 const timerInterval = ref(null)
 const gameTimer = ref(null)
 
-// Search functionality (like singleplayer)
+// Fuzzy link search
+const linkSearch = useFuzzyLinkSearch()
 const searchQuery = ref('')
-const searchMatches = ref(0)
-const currentSearchMatch = ref(0)
+const searchMatches = computed(() => linkSearch.searchResults.value.length)
 const articleViewerRef = ref(null)
 
 // Navigation history
@@ -407,125 +406,53 @@ const goForward = () => {
 
 const handleSearchInput = (query) => {
   searchQuery.value = query
-  handleSearch()
-}
-
-const handleSearch = () => {
-  if (!searchQuery.value) {
-    clearSearch()
-    return
-  }
-
-  const searchText = searchQuery.value.toLowerCase()
-  const articleContent = articleViewerRef.value?.articleContentRef
-
-  if (!articleContent) return
-
-  removeHighlights()
-
-  const matches = []
-  highlightTextNodes(articleContent, searchText, matches)
-
-  searchMatches.value = matches.length
-  currentSearchMatch.value = matches.length > 0 ? 1 : 0
-
-  if (matches.length > 0) {
-    matches[0].scrollIntoView({ behavior: "smooth", block: "center" })
-    matches[0].classList.add("current-match")
-  }
-}
-
-const highlightTextNodes = (node, searchText, matches) => {
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.textContent.toLowerCase()
-    const index = text.indexOf(searchText)
-
-    if (index !== -1) {
-      const parent = node.parentNode
-
-      const before = node.textContent.substring(0, index)
-      const match = node.textContent.substring(
-        index,
-        index + searchText.length
-      )
-      const after = node.textContent.substring(index + searchText.length)
-
-      const beforeNode = document.createTextNode(before)
-      const matchNode = document.createElement("mark")
-      matchNode.className = "search-highlight"
-      matchNode.textContent = match
-      const afterNode = document.createTextNode(after)
-
-      parent.insertBefore(beforeNode, node)
-      parent.insertBefore(matchNode, node)
-      parent.insertBefore(afterNode, node)
-      parent.removeChild(node)
-
-      matches.push(matchNode)
-
-      if (after.toLowerCase().indexOf(searchText) !== -1) {
-        highlightTextNodes(afterNode, searchText, matches)
-      }
+  linkSearch.searchLinks(query, () => {
+    // Highlight matches after search completes
+    if (articleViewerRef.value?.$el) {
+      const container = articleViewerRef.value.$el.querySelector('.article-content')
+      linkSearch.highlightMatches(container)
     }
-  } else if (
-    node.nodeType === Node.ELEMENT_NODE &&
-    node.tagName !== "SCRIPT" &&
-    node.tagName !== "STYLE"
-  ) {
-    Array.from(node.childNodes).forEach((child) => {
-      highlightTextNodes(child, searchText, matches)
-    })
-  }
+  })
 }
 
-const removeHighlights = () => {
-  const highlights = document.querySelectorAll(".search-highlight")
-  highlights.forEach((highlight) => {
-    const parent = highlight.parentNode
-    parent.replaceChild(
-      document.createTextNode(highlight.textContent),
-      highlight
-    )
-    parent.normalize()
-  })
+const selectFirstSearchResult = () => {
+  if (linkSearch.searchResults.value.length > 0) {
+    const firstResult = linkSearch.searchResults.value[0]
+    const path = firstResult.path
+    
+    // Add to navigation history
+    navigationHistory.value = navigationHistory.value.slice(0, currentHistoryIndex.value + 1)
+    navigationHistory.value.push(path)
+    currentHistoryIndex.value++
+    
+    // Update local player state
+    if (currentPlayer.value) {
+      currentPlayer.value.currentArticle = path
+      currentPlayer.value.clicks++
+    }
+    
+    // Load new article
+    loadArticle(path)
+    
+    // Send navigation to server
+    sendArticleNavigation(path)
+    
+    // Check if reached target
+    const articleTitle = path.replace(/_/g, ' ')
+    if (articleTitle === settings.value.targetArticle) {
+      handleReachTarget()
+    }
+  }
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
-  searchMatches.value = 0
-  currentSearchMatch.value = 0
-  removeHighlights()
-}
-
-const nextMatch = () => {
-  const highlights = document.querySelectorAll(".search-highlight")
-  if (highlights.length === 0) return
-
-  document.querySelectorAll(".current-match").forEach((el) => {
-    el.classList.remove("current-match")
-  })
-
-  currentSearchMatch.value = (currentSearchMatch.value % highlights.length) + 1
-  const nextHighlight = highlights[currentSearchMatch.value - 1]
-  nextHighlight.classList.add("current-match")
-  nextHighlight.scrollIntoView({ behavior: "smooth", block: "center" })
-}
-
-const previousMatch = () => {
-  const highlights = document.querySelectorAll(".search-highlight")
-  if (highlights.length === 0) return
-
-  document.querySelectorAll(".current-match").forEach((el) => {
-    el.classList.remove("current-match")
-  })
-
-  currentSearchMatch.value =
-    currentSearchMatch.value === 1
-      ? highlights.length
-      : currentSearchMatch.value - 1
-  const prevHighlight = highlights[currentSearchMatch.value - 1]
-  prevHighlight.classList.add("current-match")
-  prevHighlight.scrollIntoView({ behavior: "smooth", block: "center" })
+  linkSearch.clearSearch()
+  // Remove highlights
+  if (articleViewerRef.value?.$el) {
+    const container = articleViewerRef.value.$el.querySelector('.article-content')
+    linkSearch.removeHighlights(container)
+  }
 }
 
 // Load article
@@ -541,6 +468,12 @@ const loadArticle = async (title) => {
     )
     
     currentArticleContent.value = response.data.html
+    
+    // Extract links for search
+    linkSearch.extractAndCacheLinks(title, response.data.html)
+    
+    // Clear search on new article
+    clearSearch()
     
     // Scroll to top
     if (articleContentRef.value) {

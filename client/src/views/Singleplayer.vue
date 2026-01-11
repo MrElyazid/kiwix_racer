@@ -13,14 +13,12 @@
       :can-go-forward="canGoForward"
       :search-query="searchQuery"
       :search-matches="searchMatches"
-      :current-search-match="currentSearchMatch"
       @go-back="goBack"
       @go-forward="goForward"
       @end-game="endGame"
       @update:search-query="handleSearchInput"
       @clear-search="clearSearch"
-      @previous-match="previousMatch"
-      @next-match="nextMatch"
+      @select-first-result="selectFirstSearchResult"
     />
 
     <!-- Game Setup -->
@@ -80,6 +78,7 @@ import GameInfoBar from "../components/singleplayer/GameInfoBar.vue";
 import GameSetup from "../components/singleplayer/GameSetup.vue";
 import ArticleViewer from "../components/singleplayer/ArticleViewer.vue";
 import GameNotification from "../components/singleplayer/GameNotification.vue";
+import { useFuzzyLinkSearch } from "@/composables/useFuzzyLinkSearch";
 
 const emit = defineEmits(["game-started", "game-ended"]);
 const router = useRouter();
@@ -113,10 +112,10 @@ const loadingArticle = ref(false);
 const navigationHistory = ref([]);
 const currentHistoryIndex = ref(-1);
 
-// Search functionality
+// Fuzzy link search
+const linkSearch = useFuzzyLinkSearch();
 const searchQuery = ref("");
-const searchMatches = ref(0);
-const currentSearchMatch = ref(0);
+const searchMatches = computed(() => linkSearch.searchResults.value.length);
 
 // Article viewer reference
 const articleViewerRef = ref(null);
@@ -345,6 +344,12 @@ async function loadArticle(path, isInitialLoad = false) {
     currentArticleTitle.value = path.replace(/_/g, " ");
     currentArticleContent.value = response.data;
 
+    // Extract links for search
+    linkSearch.extractAndCacheLinks(path, response.data);
+
+    // Clear search on new article
+    clearSearch();
+
     if (!isInitialLoad && gameStarted.value) {
       if (currentHistoryIndex.value < navigationHistory.value.length - 1) {
         navigationHistory.value = navigationHistory.value.slice(
@@ -369,8 +374,6 @@ async function loadArticle(path, isInitialLoad = false) {
       ];
       currentHistoryIndex.value = 0;
     }
-
-    clearSearch();
 
     if (currentArticleTitle.value === targetArticle.value) {
       endGame(false, true);
@@ -433,6 +436,10 @@ function goBack() {
   currentArticleTitle.value = historyItem.title;
   currentArticleContent.value = historyItem.content;
 
+  // Extract links and clear search
+  linkSearch.extractAndCacheLinks(historyItem.path, historyItem.content);
+  clearSearch();
+
   if (currentArticleTitle.value === targetArticle.value) {
     endGame(false, true);
   }
@@ -447,6 +454,10 @@ function goForward() {
   currentArticleTitle.value = historyItem.title;
   currentArticleContent.value = historyItem.content;
 
+  // Extract links and clear search
+  linkSearch.extractAndCacheLinks(historyItem.path, historyItem.content);
+  clearSearch();
+
   if (currentArticleTitle.value === targetArticle.value) {
     endGame(false, true);
   }
@@ -454,125 +465,31 @@ function goForward() {
 
 function handleSearchInput(value) {
   searchQuery.value = value;
-  handleSearch();
-}
-
-function handleSearch() {
-  if (!searchQuery.value) {
-    clearSearch();
-    return;
-  }
-
-  const searchText = searchQuery.value.toLowerCase();
-  const articleContent = document.querySelector(".article-content");
-
-  if (!articleContent) return;
-
-  removeHighlights();
-
-  const matches = [];
-  highlightTextNodes(articleContent, searchText, matches);
-
-  searchMatches.value = matches.length;
-  currentSearchMatch.value = matches.length > 0 ? 1 : 0;
-
-  if (matches.length > 0) {
-    matches[0].scrollIntoView({ behavior: "smooth", block: "center" });
-    matches[0].classList.add("current-match");
-  }
-}
-
-function highlightTextNodes(node, searchText, matches) {
-  if (node.nodeType === Node.TEXT_NODE) {
-    const text = node.textContent.toLowerCase();
-    const index = text.indexOf(searchText);
-
-    if (index !== -1) {
-      const parent = node.parentNode;
-
-      const before = node.textContent.substring(0, index);
-      const match = node.textContent.substring(
-        index,
-        index + searchText.length
-      );
-      const after = node.textContent.substring(index + searchText.length);
-
-      const beforeNode = document.createTextNode(before);
-      const matchNode = document.createElement("mark");
-      matchNode.className = "search-highlight";
-      matchNode.textContent = match;
-      const afterNode = document.createTextNode(after);
-
-      parent.insertBefore(beforeNode, node);
-      parent.insertBefore(matchNode, node);
-      parent.insertBefore(afterNode, node);
-      parent.removeChild(node);
-
-      matches.push(matchNode);
-
-      if (after.toLowerCase().indexOf(searchText) !== -1) {
-        highlightTextNodes(afterNode, searchText, matches);
-      }
+  linkSearch.searchLinks(value, () => {
+    // Highlight matches after search completes
+    if (articleViewerRef.value?.$el) {
+      const container = articleViewerRef.value.$el.querySelector('.article-content');
+      linkSearch.highlightMatches(container);
     }
-  } else if (
-    node.nodeType === Node.ELEMENT_NODE &&
-    node.tagName !== "SCRIPT" &&
-    node.tagName !== "STYLE"
-  ) {
-    Array.from(node.childNodes).forEach((child) => {
-      highlightTextNodes(child, searchText, matches);
-    });
+  });
+}
+
+function selectFirstSearchResult() {
+  if (linkSearch.searchResults.value.length > 0) {
+    const firstResult = linkSearch.searchResults.value[0];
+    clickCount.value++;
+    loadArticle(firstResult.path);
   }
-}
-
-function removeHighlights() {
-  const highlights = document.querySelectorAll(".search-highlight");
-  highlights.forEach((highlight) => {
-    const parent = highlight.parentNode;
-    parent.replaceChild(
-      document.createTextNode(highlight.textContent),
-      highlight
-    );
-    parent.normalize();
-  });
-}
-
-function nextMatch() {
-  const highlights = document.querySelectorAll(".search-highlight");
-  if (highlights.length === 0) return;
-
-  document.querySelectorAll(".current-match").forEach((el) => {
-    el.classList.remove("current-match");
-  });
-
-  currentSearchMatch.value = (currentSearchMatch.value % highlights.length) + 1;
-  const nextHighlight = highlights[currentSearchMatch.value - 1];
-  nextHighlight.classList.add("current-match");
-  nextHighlight.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-function previousMatch() {
-  const highlights = document.querySelectorAll(".search-highlight");
-  if (highlights.length === 0) return;
-
-  document.querySelectorAll(".current-match").forEach((el) => {
-    el.classList.remove("current-match");
-  });
-
-  currentSearchMatch.value =
-    currentSearchMatch.value === 1
-      ? highlights.length
-      : currentSearchMatch.value - 1;
-  const prevHighlight = highlights[currentSearchMatch.value - 1];
-  prevHighlight.classList.add("current-match");
-  prevHighlight.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function clearSearch() {
   searchQuery.value = "";
-  searchMatches.value = 0;
-  currentSearchMatch.value = 0;
-  removeHighlights();
+  linkSearch.clearSearch();
+  // Remove highlights
+  if (articleViewerRef.value?.$el) {
+    const container = articleViewerRef.value.$el.querySelector('.article-content');
+    linkSearch.removeHighlights(container);
+  }
 }
 
 function endGame(timeUp = false, won = false) {

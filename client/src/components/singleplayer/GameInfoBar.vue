@@ -41,30 +41,15 @@
             :value="searchQuery"
             type="text"
             class="input is-small search-input"
-            placeholder="Search in page..."
+            placeholder="Search links..."
             @input="$emit('update:searchQuery', $event.target.value)"
             @keydown.escape="$emit('clear-search')"
+            @keydown.enter.prevent="$emit('select-first-result')"
           />
-          <span v-if="searchQuery && searchMatches > 0" class="search-count">
-            {{ currentSearchMatch }}/{{ searchMatches }}
+          <span v-if="searchQuery" class="search-count">
+            {{ searchMatches }} {{ searchMatches === 1 ? 'link' : 'links' }}
           </span>
           <div v-if="searchQuery" class="search-nav-buttons">
-            <button
-              class="button is-small search-nav-btn"
-              @click="$emit('previous-match')"
-              :disabled="searchMatches === 0"
-              title="Previous match (Shift+Enter)"
-            >
-              ↑
-            </button>
-            <button
-              class="button is-small search-nav-btn"
-              @click="$emit('next-match')"
-              :disabled="searchMatches === 0"
-              title="Next match (Enter)"
-            >
-              ↓
-            </button>
             <button
               class="button is-small search-nav-btn"
               @click="$emit('clear-search')"
@@ -116,7 +101,6 @@ defineProps({
   canGoForward: Boolean,
   searchQuery: String,
   searchMatches: Number,
-  currentSearchMatch: Number,
 });
 
 const emit = defineEmits([
@@ -125,8 +109,7 @@ const emit = defineEmits([
   "end-game",
   "update:searchQuery",
   "clear-search",
-  "previous-match",
-  "next-match",
+  "select-first-result",
 ]);
 
 const showConfirmation = ref(false);

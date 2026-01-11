@@ -180,17 +180,8 @@ async function handleJumpToNode(node, index) {
 }
 
 function handleClear() {
-  clearGraph();
-  clearPath();
-  exploration.reset();
-  timer.reset();
-  selectedSource.value = null;
-  selectedTarget.value = null;
-
-  // Reinitialize canvas
-  nextTick(() => {
-    graphCanvasRef.value?.reinitialize();
-  });
+  // Reload page for complete reset
+  window.location.reload();
 }
 
 function handleCenterView() {
