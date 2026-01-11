@@ -95,7 +95,14 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
+  z-index: 0;
+  pointer-events: none;
   background: #FFF1CB;
+}
+
+.p5-background >>> canvas {
+  position: absolute !important;
+  top: 0;
+  left: 0;
 }
 </style>

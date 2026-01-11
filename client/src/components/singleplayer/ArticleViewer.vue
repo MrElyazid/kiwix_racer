@@ -45,8 +45,7 @@ defineExpose({
 /* Game Container - Full viewport */
 .game-container {
   position: relative;
-  height: calc(100vh - 53px); /* Subtract game info bar height */
-  margin-top: 53px;
+  height: 100%;
   background: white;
   z-index: 1;
 }
