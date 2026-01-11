@@ -565,8 +565,20 @@ const clearVisualization = () => {
   targetFound.value = false;
   resetTimer();
   
+  if (simulation) {
+    try {
+      simulation.stop();
+      simulation.on("tick", null); // Remove tick handler
+    } catch (err) {
+      // ignore
+    }
+    simulation = null;
+  }
+  
   if (svg) {
     try {
+      // Remove all event listeners and child elements
+      svg.selectAll("*").remove();
       svg.remove();
     } catch (err) {
       // ignore
@@ -576,15 +588,6 @@ const clearVisualization = () => {
     linkElements = null;
     nodeElements = null;
     labelElements = null;
-
-    if (simulation) {
-      try {
-        simulation.stop();
-      } catch (err) {
-        // ignore
-      }
-      simulation = null;
-    }
 
     nextTick(() => {
       initVisualization();
@@ -798,20 +801,36 @@ const updateVisualization = () => {
 
   labelElements = labelEnter.merge(labelSelection);
 
-  simulation.nodes(nodes.value);
-  simulation.force("link").links(links.value);
-  simulation.alpha(0.3).restart();
+  // Update simulation with proper error handling
+  try {
+    simulation.nodes(nodes.value);
+    simulation.force("link").links(links.value);
+    simulation.alpha(0.3).restart();
+  } catch (err) {
+    console.error("Error updating simulation:", err);
+    return;
+  }
 
   simulation.on("tick", () => {
-    linkElements
-      .attr("x1", (d) => d.source.x)
-      .attr("y1", (d) => d.source.y)
-      .attr("x2", (d) => d.target.x)
-      .attr("y2", (d) => d.target.y);
+    try {
+      if (linkElements) {
+        linkElements
+          .attr("x1", (d) => (d.source && d.source.x) || 0)
+          .attr("y1", (d) => (d.source && d.source.y) || 0)
+          .attr("x2", (d) => (d.target && d.target.x) || 0)
+          .attr("y2", (d) => (d.target && d.target.y) || 0);
+      }
 
-    nodeElements.attr("cx", (d) => d.x).attr("cy", (d) => d.y);
+      if (nodeElements) {
+        nodeElements.attr("cx", (d) => d.x || 0).attr("cy", (d) => d.y || 0);
+      }
 
-    labelElements.attr("x", (d) => d.x).attr("y", (d) => d.y);
+      if (labelElements) {
+        labelElements.attr("x", (d) => d.x || 0).attr("y", (d) => d.y || 0);
+      }
+    } catch (err) {
+      // Suppress tick errors to prevent spam
+    }
   });
 };
 
@@ -835,7 +854,11 @@ const dragEnded = (event, d) => {
 watch(
   [nodes, links, path],
   () => {
-    updateVisualization();
+    try {
+      updateVisualization();
+    } catch (err) {
+      console.error("Error in visualization watch:", err);
+    }
   },
   { deep: true }
 );
@@ -845,9 +868,39 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  if (simulation) {
-    simulation.stop();
+  // Clean up timer
+  if (timerIntervalId) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
   }
+  
+  // Clean up simulation
+  if (simulation) {
+    try {
+      simulation.stop();
+      simulation.on("tick", null);
+    } catch (err) {
+      // ignore
+    }
+    simulation = null;
+  }
+  
+  // Clean up SVG
+  if (svg) {
+    try {
+      svg.selectAll("*").remove();
+      svg.remove();
+    } catch (err) {
+      // ignore
+    }
+  }
+  
+  // Clear references
+  svg = null;
+  g = null;
+  linkElements = null;
+  nodeElements = null;
+  labelElements = null;
 });
 </script>
 
