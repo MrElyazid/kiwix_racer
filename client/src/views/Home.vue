@@ -13,7 +13,7 @@
 
           <div class="columns is-centered mt-6">
             <div class="column is-4">
-              <div class="card game-card">
+              <div class="card game-card card-singleplayer">
                 <div class="card-content">
                   <p class="title is-4 card-title">Singleplayer</p>
                   <p class="content card-text">
@@ -28,7 +28,7 @@
             </div>
 
             <div class="column is-4">
-              <div class="card game-card">
+              <div class="card game-card card-multiplayer">
                 <div class="card-content">
                   <p class="title is-4 card-title">Multiplayer</p>
                   <p class="content card-text">
@@ -43,7 +43,7 @@
             </div>
 
             <div class="column is-4">
-              <div class="card game-card">
+              <div class="card game-card card-explore">
                 <div class="card-content">
                   <p class="title is-4 card-title">Explore</p>
                   <p class="content card-text">
@@ -77,13 +77,13 @@ import P5Background from "../components/P5Background.vue";
   font-size: 4rem;
   font-weight: 900;
   font-family: 'Bagel Fat One', cursive;
-  color: #2ec4b6;
+  color: #ff9f1c;
   letter-spacing: 2px;
 }
 
 .subtitle-text {
   color: #333;
-  font-family: 'Chewy', cursive;
+  font-family: 'Google Sans Code', 'Courier New', monospace;
 }
 
 .game-card {
@@ -94,9 +94,18 @@ import P5Background from "../components/P5Background.vue";
   border: 3px solid #2ec4b6;
 }
 
-.game-card:hover {
-  /* No hover effect */
+.card-singleplayer {
+  border-color: #10b981;
 }
+
+.card-multiplayer {
+  border-color: #ff9f1c;
+}
+
+.card-explore {
+  border-color: #ff6b6b;
+}
+
 
 .card-content .title {
   margin-bottom: 1rem;

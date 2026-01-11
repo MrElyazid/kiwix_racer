@@ -9,13 +9,16 @@
       <div class="container">
         <div class="navbar-brand">
           <router-link to="/" class="navbar-item logo-item">
-            <img :src="logo" alt="WikiDash Logo" class="logo-img" />
-            <strong>WikiDash</strong>
+            <strong class="colorful-title">WikiDash</strong>
           </router-link>
         </div>
         <div class="navbar-menu">
           <div class="navbar-end">
-            <router-link to="/" class="navbar-item">Home</router-link>
+            <router-link to="/" class="navbar-item nav-link-badge">Home</router-link>
+            <a href="https://github.com/MrElyazid/wikiDash" target="_blank" rel="noopener noreferrer" class="navbar-item nav-link-badge github-link">
+              <i class="fab fa-github"></i>
+              <span>GitHub</span>
+            </a>
           </div>
         </div>
       </div>
@@ -35,7 +38,6 @@ import { ref, watch } from "vue";
 import { RouterView, useRoute } from "vue-router";
 import { useLanguageStore } from "@/stores/language";
 import { storeToRefs } from "pinia";
-import logo from "@/assets/logo.png";
 
 const route = useRoute();
 const hideNavbar = ref(false);
@@ -67,57 +69,72 @@ watch(
   background-color: var(--color-white) !important;
   backdrop-filter: blur(10px);
   border-bottom: 3px solid #2ec4b6;
-  padding: 0.5rem 0;
+  padding: 0.75rem 0;
   box-shadow: none;
 }
 
 .navbar-item {
-  font-size: 1.1rem;
-  font-weight: 600;
   font-family: 'Chewy', cursive;
-  color: #2ec4b6;
+  color: #1a1a1a;
   border-radius: 0;
-  margin: 0 0.25rem;
   transition: none;
-}
-
-.navbar-item:hover {
-  text-decoration: underline;
-  background-color: transparent !important;
-}
-
-.navbar-brand .navbar-item strong {
-  font-family: 'Bagel Fat One', cursive;
-  font-size: 1.8rem;
-  font-weight: 400;
-  color: #2ec4b6;
-  letter-spacing: 1px;
 }
 
 .logo-item {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding: 0.5rem 1rem;
 }
 
-.logo-img {
-  max-height: 32px;
-  width: auto;
-  transition: transform 0.3s ease;
-}
-
-.navbar-item:hover .logo-img {
-  transform: rotate(-10deg);
-}
-
-.navbar-item:hover, .navbar-item.router-link-active {
-  background-color: rgba(255, 143, 143, 0.15) !important;
-  color: #e04a4a !important;
-}
-
-.navbar-item.logo-item:hover {
+.logo-item:hover,
+.logo-item:active,
+.logo-item:focus,
+.logo-item.router-link-active {
   background-color: transparent !important;
-  color: #2c3e50 !important;
+}
+
+.colorful-title {
+  font-family: 'Bagel Fat One', cursive;
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 2px;
+  color: #1a1a1a;
+}
+
+.nav-link-badge {
+  background: var(--color-white);
+  border: 3px solid #2ec4b6;
+  padding: 0.5rem 1rem !important;
+  margin: 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
+  transition: none;
+}
+
+.nav-link-badge:hover {
+  background-color: #2ec4b6 !important;
+  color: var(--color-white) !important;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+  transform: translate(1px, 1px);
+}
+
+.nav-link-badge.router-link-active {
+  background-color: #2ec4b6 !important;
+  color: var(--color-white) !important;
+  border-color: #2ec4b6;
+}
+
+.github-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.github-link i {
+  font-size: 1.1rem;
 }
 
 .is-fullheight-with-navbar {

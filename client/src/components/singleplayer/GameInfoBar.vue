@@ -41,7 +41,7 @@
             :value="searchQuery"
             type="text"
             class="input is-small search-input"
-            placeholder="Search in page (Ctrl+F)"
+            placeholder="Search in page..."
             @input="$emit('update:searchQuery', $event.target.value)"
             @keydown.escape="$emit('clear-search')"
           />
@@ -291,7 +291,6 @@ function confirmEndGame() {
 
 .modal-card {
   overflow: hidden;
-  border: 3px solid var(--color-primary);
   box-shadow: 8px 8px 0 rgba(0, 0, 0, 0.2);
 }
 
@@ -328,5 +327,17 @@ function confirmEndGame() {
   font-family: 'Chewy', cursive;
   font-weight: 400;
   font-size: 1rem;
+}
+
+.modal-card-foot .button:not(.is-danger) {
+  background: #10b981;
+  color: var(--color-white);
+  border: 2px solid #10b981;
+}
+
+.modal-card-foot .button:not(.is-danger):hover {
+  background: #059669;
+  border-color: #059669;
+  text-decoration: underline;
 }
 </style>

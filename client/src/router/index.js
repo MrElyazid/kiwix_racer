@@ -24,11 +24,6 @@ const router = createRouter({
       name: "multiplayer",
       component: () => import("../views/Multiplayer.vue"),
     },
-    {
-      path: "/multiplayer-demo",
-      name: "multiplayer-demo",
-      component: () => import("../views/MultiplayerDemo.vue"),
-    },
   ],
 });
 
