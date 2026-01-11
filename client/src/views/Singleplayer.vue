@@ -148,6 +148,13 @@ const formattedTime = computed(() => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 });
 
+const elapsedTime = computed(() => {
+  const totalSeconds = (timeLimit.value * 60) - timeRemaining.value;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+});
+
 const canGoBack = computed(() => {
   return currentHistoryIndex.value > 0;
 });
@@ -582,7 +589,7 @@ function endGame(timeUp = false, won = false) {
       message: `You reached the target article!`,
       stats: {
         clicks: clickCount.value,
-        time: formattedTime.value,
+        time: elapsedTime.value,
       },
       showPlayAgain: true,
     };

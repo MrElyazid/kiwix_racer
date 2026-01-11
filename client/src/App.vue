@@ -66,18 +66,18 @@ watch(
 }
 
 .navbar.is-transparent {
-  background-color: var(--color-white) !important;
+  background: #FFFDE1 !important;
   backdrop-filter: blur(10px);
   border-bottom: 3px solid #2ec4b6;
   padding: 0.75rem 0;
-  box-shadow: none;
+  box-shadow: 0 2px 12px rgba(46, 196, 182, 0.2);
 }
 
 .navbar-item {
   font-family: 'Chewy', cursive;
   color: #1a1a1a;
   border-radius: 0;
-  transition: none;
+  transition: all 0.3s ease;
 }
 
 .logo-item {
@@ -100,31 +100,33 @@ watch(
   font-weight: 400;
   letter-spacing: 2px;
   color: #1a1a1a;
+  text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.5);
 }
 
 .nav-link-badge {
-  background: var(--color-white);
-  border: 3px solid #2ec4b6;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid #1a1a1a;
   padding: 0.5rem 1rem !important;
   margin: 0 0.5rem;
   font-size: 1rem;
   font-weight: 600;
   color: #1a1a1a;
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
-  transition: none;
+  transition: all 0.2s ease;
 }
 
 .nav-link-badge:hover {
-  background-color: #2ec4b6 !important;
-  color: var(--color-white) !important;
-  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+  background-color: #ff9f1c !important;
+  color: #1a1a1a !important;
+  border-color: #1a1a1a;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
   transform: translate(1px, 1px);
 }
 
 .nav-link-badge.router-link-active {
   background-color: #2ec4b6 !important;
-  color: var(--color-white) !important;
-  border-color: #2ec4b6;
+  color: #1a1a1a !important;
+  border-color: #1a1a1a;
 }
 
 .github-link {

@@ -84,6 +84,18 @@
       <div class="connection-spinner"></div>
       <p>Connecting to server...</p>
     </div>
+
+    <!-- Game Notification Modal -->
+    <GameNotification
+      :show="notification.show"
+      :type="notification.type"
+      :title="notification.title"
+      :message="notification.message"
+      :stats="notification.stats"
+      :show-play-again="notification.showPlayAgain"
+      @close="closeNotification"
+      @play-again="handlePlayAgain"
+    />
   </div>
 </template>
 
@@ -99,6 +111,7 @@ import MultiplayerGameSidebar from '../components/multiplayer/MultiplayerGameSid
 import MultiplayerLeaderboard from '../components/multiplayer/MultiplayerLeaderboard.vue'
 import GameInfoBar from '../components/singleplayer/GameInfoBar.vue'
 import ArticleViewer from '../components/singleplayer/ArticleViewer.vue'
+import GameNotification from '../components/singleplayer/GameNotification.vue'
 
 const router = useRouter()
 const languageStore = useLanguageStore()
@@ -148,6 +161,16 @@ const articleViewerRef = ref(null)
 const navigationHistory = ref([])
 const currentHistoryIndex = ref(-1)
 
+// Notification state
+const notification = ref({
+  show: false,
+  type: "info",
+  title: "",
+  message: "",
+  stats: null,
+  showPlayAgain: false,
+})
+
 const sortedLeaderboard = computed(() => {
   if (!room.value?.players) return []
   return [...room.value.players].sort((a, b) => (b.score || 0) - (a.score || 0))
@@ -165,6 +188,14 @@ const formattedTime = computed(() => {
   if (timeRemaining.value === null) return '0:00'
   const minutes = Math.floor(timeRemaining.value / 60)
   const seconds = timeRemaining.value % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+})
+
+const elapsedTime = computed(() => {
+  if (!settings.value?.timeLimit || timeRemaining.value === null) return '0:00'
+  const totalSeconds = (settings.value.timeLimit * 60) - timeRemaining.value
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
   return `${minutes}:${seconds.toString().padStart(2, '0')}`
 })
 
@@ -224,6 +255,13 @@ watch(() => gameState.value, (newState) => {
     emit('game-ended')
   }
 })
+
+// Watch for room players changes to check if all finished
+watch(() => room.value?.players, (players) => {
+  if (gameState.value === 'playing' && players && players.length > 0) {
+    checkIfAllPlayersFinished()
+  }
+}, { deep: true })
 
 // Handle create room
 const handleCreateRoom = async (playerName) => {
@@ -290,39 +328,60 @@ const handleStartGame = async () => {
 // Handle article click
 const handleArticleClick = (event) => {
   const target = event.target
-  if (target.tagName === 'A' && target.href) {
+
+  if (target.tagName === "IMG") {
     event.preventDefault()
-    
-    // Extract article title from link
-    const url = new URL(target.href)
-    const pathname = url.pathname
-    
-    // Extract title from pathname (e.g., /wiki/Article_Name)
-    const match = pathname.match(/\/wiki\/(.+)/)
-    if (match) {
-      let articleTitle = decodeURIComponent(match[1])
-      articleTitle = articleTitle.replace(/_/g, ' ')
-      
-      // Add to navigation history
-      navigationHistory.value = navigationHistory.value.slice(0, currentHistoryIndex.value + 1)
-      navigationHistory.value.push(articleTitle)
-      currentHistoryIndex.value++
-      
-      // Update local player state immediately for instant feedback
-      if (currentPlayer.value) {
-        currentPlayer.value.currentArticle = articleTitle
-        currentPlayer.value.clicks++
+    return
+  }
+
+  const link = target.closest("a")
+  if (link && link.href) {
+    if (link.querySelector("img")) {
+      event.preventDefault()
+      return
+    }
+
+    event.preventDefault()
+
+    const href = link.getAttribute("href")
+
+    if (href && (href.includes("wikipedia") || href.startsWith("http"))) {
+      return
+    }
+
+    if (href && !href.startsWith("#")) {
+      let path
+
+      if (href.startsWith("./")) {
+        path = decodeURIComponent(href.substring(2)).split("#")[0]
+        if (path.includes(":")) return
+      } else {
+        return
       }
-      
-      // Load new article
-      loadArticle(articleTitle)
-      
-      // Send navigation to server (which will broadcast to others)
-      sendArticleNavigation(articleTitle)
-      
-      // Check if reached target
-      if (articleTitle === settings.value.targetArticle) {
-        handleReachTarget()
+
+      if (path) {
+        // Add to navigation history
+        navigationHistory.value = navigationHistory.value.slice(0, currentHistoryIndex.value + 1)
+        navigationHistory.value.push(path)
+        currentHistoryIndex.value++
+        
+        // Update local player state immediately for instant feedback
+        if (currentPlayer.value) {
+          currentPlayer.value.currentArticle = path
+          currentPlayer.value.clicks++
+        }
+        
+        // Load new article
+        loadArticle(path)
+        
+        // Send navigation to server (which will broadcast to others)
+        sendArticleNavigation(path)
+        
+        // Check if reached target
+        const articleTitle = path.replace(/_/g, ' ')
+        if (articleTitle === settings.value.targetArticle) {
+          handleReachTarget()
+        }
       }
     }
   }
@@ -348,101 +407,125 @@ const goForward = () => {
 
 const handleSearchInput = (query) => {
   searchQuery.value = query
-  if (!query) {
+  handleSearch()
+}
+
+const handleSearch = () => {
+  if (!searchQuery.value) {
     clearSearch()
     return
   }
-  performSearch()
+
+  const searchText = searchQuery.value.toLowerCase()
+  const articleContent = articleViewerRef.value?.articleContentRef
+
+  if (!articleContent) return
+
+  removeHighlights()
+
+  const matches = []
+  highlightTextNodes(articleContent, searchText, matches)
+
+  searchMatches.value = matches.length
+  currentSearchMatch.value = matches.length > 0 ? 1 : 0
+
+  if (matches.length > 0) {
+    matches[0].scrollIntoView({ behavior: "smooth", block: "center" })
+    matches[0].classList.add("current-match")
+  }
+}
+
+const highlightTextNodes = (node, searchText, matches) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent.toLowerCase()
+    const index = text.indexOf(searchText)
+
+    if (index !== -1) {
+      const parent = node.parentNode
+
+      const before = node.textContent.substring(0, index)
+      const match = node.textContent.substring(
+        index,
+        index + searchText.length
+      )
+      const after = node.textContent.substring(index + searchText.length)
+
+      const beforeNode = document.createTextNode(before)
+      const matchNode = document.createElement("mark")
+      matchNode.className = "search-highlight"
+      matchNode.textContent = match
+      const afterNode = document.createTextNode(after)
+
+      parent.insertBefore(beforeNode, node)
+      parent.insertBefore(matchNode, node)
+      parent.insertBefore(afterNode, node)
+      parent.removeChild(node)
+
+      matches.push(matchNode)
+
+      if (after.toLowerCase().indexOf(searchText) !== -1) {
+        highlightTextNodes(afterNode, searchText, matches)
+      }
+    }
+  } else if (
+    node.nodeType === Node.ELEMENT_NODE &&
+    node.tagName !== "SCRIPT" &&
+    node.tagName !== "STYLE"
+  ) {
+    Array.from(node.childNodes).forEach((child) => {
+      highlightTextNodes(child, searchText, matches)
+    })
+  }
+}
+
+const removeHighlights = () => {
+  const highlights = document.querySelectorAll(".search-highlight")
+  highlights.forEach((highlight) => {
+    const parent = highlight.parentNode
+    parent.replaceChild(
+      document.createTextNode(highlight.textContent),
+      highlight
+    )
+    parent.normalize()
+  })
 }
 
 const clearSearch = () => {
   searchQuery.value = ''
   searchMatches.value = 0
   currentSearchMatch.value = 0
-  if (articleViewerRef.value?.articleContentRef) {
-    const content = articleViewerRef.value.articleContentRef
-    const highlights = content.querySelectorAll('.search-highlight')
-    highlights.forEach(el => {
-      const parent = el.parentNode
-      parent.replaceChild(document.createTextNode(el.textContent), el)
-      parent.normalize()
-    })
-  }
-}
-
-const performSearch = () => {
-  if (!articleViewerRef.value?.articleContentRef || !searchQuery.value) return
-  
-  clearSearch()
-  searchQuery.value = searchQuery.value // Keep the query
-  
-  const content = articleViewerRef.value.articleContentRef
-  const text = content.textContent
-  const regex = new RegExp(searchQuery.value, 'gi')
-  const matches = text.match(regex)
-  
-  if (matches) {
-    searchMatches.value = matches.length
-    currentSearchMatch.value = 1
-    highlightMatches()
-  }
-}
-
-const highlightMatches = () => {
-  if (!articleViewerRef.value?.articleContentRef) return
-  
-  const content = articleViewerRef.value.articleContentRef
-  const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT)
-  const textNodes = []
-  
-  while (walker.nextNode()) {
-    if (walker.currentNode.parentElement?.tagName !== 'SCRIPT' &&
-        walker.currentNode.parentElement?.tagName !== 'STYLE') {
-      textNodes.push(walker.currentNode)
-    }
-  }
-  
-  const regex = new RegExp(`(${searchQuery.value})`, 'gi')
-  
-  textNodes.forEach(node => {
-    const text = node.textContent
-    if (regex.test(text)) {
-      const span = document.createElement('span')
-      span.innerHTML = text.replace(regex, '<mark class="search-highlight">$1</mark>')
-      node.parentNode.replaceChild(span, node)
-    }
-  })
-  
-  scrollToCurrentMatch()
-}
-
-const previousMatch = () => {
-  if (currentSearchMatch.value > 1) {
-    currentSearchMatch.value--
-    scrollToCurrentMatch()
-  }
+  removeHighlights()
 }
 
 const nextMatch = () => {
-  if (currentSearchMatch.value < searchMatches.value) {
-    currentSearchMatch.value++
-    scrollToCurrentMatch()
-  }
+  const highlights = document.querySelectorAll(".search-highlight")
+  if (highlights.length === 0) return
+
+  document.querySelectorAll(".current-match").forEach((el) => {
+    el.classList.remove("current-match")
+  })
+
+  currentSearchMatch.value = (currentSearchMatch.value % highlights.length) + 1
+  const nextHighlight = highlights[currentSearchMatch.value - 1]
+  nextHighlight.classList.add("current-match")
+  nextHighlight.scrollIntoView({ behavior: "smooth", block: "center" })
 }
 
-const scrollToCurrentMatch = () => {
-  if (!articleViewerRef.value?.articleContentRef) return
-  
-  const content = articleViewerRef.value.articleContentRef
-  const highlights = content.querySelectorAll('.search-highlight')
-  
-  highlights.forEach((el, index) => {
-    el.classList.remove('current-match')
-    if (index === currentSearchMatch.value - 1) {
-      el.classList.add('current-match')
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
+const previousMatch = () => {
+  const highlights = document.querySelectorAll(".search-highlight")
+  if (highlights.length === 0) return
+
+  document.querySelectorAll(".current-match").forEach((el) => {
+    el.classList.remove("current-match")
   })
+
+  currentSearchMatch.value =
+    currentSearchMatch.value === 1
+      ? highlights.length
+      : currentSearchMatch.value - 1
+  const prevHighlight = highlights[currentSearchMatch.value - 1]
+  prevHighlight.classList.add("current-match")
+  prevHighlight.scrollIntoView({ behavior: "smooth", block: "center" })
 }
 
 // Load article
@@ -472,10 +555,48 @@ const loadArticle = async (title) => {
 }
 
 // Handle reach target
-const handleReachTarget = () => {
+const handleReachTarget = async () => {
   sendReachTarget()
+  
   // Show notification
-  alert('Congratulations! You reached the target!')
+  notification.value = {
+    show: true,
+    type: "success",
+    title: "Congratulations!",
+    message: "You reached the target article!",
+    stats: {
+      clicks: currentPlayer.value?.clicks || 0,
+      time: elapsedTime.value,
+    },
+    showPlayAgain: false,
+  }
+
+  // Check if all players have finished
+  // Note: Wait a bit for the server to update the room state
+  setTimeout(() => {
+    checkIfAllPlayersFinished()
+  }, 500)
+}
+
+const checkIfAllPlayersFinished = async () => {
+  if (!room.value?.players) return
+  
+  // Check if all players have reached the target
+  const allFinished = room.value.players.every(player => player.reached === true)
+  
+  if (allFinished && isHost.value) {
+    console.log('All players finished! Ending game...')
+    // If host and all players finished, end the game
+    try {
+      await endGame()
+    } catch (error) {
+      console.error('Error ending game:', error)
+    }
+  }
+}
+
+const closeNotification = () => {
+  notification.value.show = false
 }
 
 // Start game timer

@@ -8,9 +8,8 @@
           <h1 class="title is-1 main-title">WikiDash</h1>
           <p class="subtitle is-4 subtitle-text">
             Navigate from one Wikipedia article to another in the quickest way
-            possible
-          </p>
-
+            possible, or just explore and visualize wikipedia and paths between its articles!          </p>
+            
           <div class="columns is-centered mt-6">
             <div class="column is-4">
               <div class="card game-card card-singleplayer">
@@ -47,8 +46,7 @@
                 <div class="card-content">
                   <p class="title is-4 card-title">Explore</p>
                   <p class="content card-text">
-                    Browse Wikipedia datasets and visualize graph traversal
-                    algorithms
+                    Visualize the shortest path between two articles and browse wikipedia as if it was a graph.
                   </p>
                   <router-link to="/explore" class="button game-button is-fullwidth">
                     Explore
