@@ -4,6 +4,12 @@
  */
 
 import axios from "axios";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 class WikipediaService {
   constructor() {
@@ -11,15 +17,51 @@ class WikipediaService {
     this.baseUrlFrench = "https://fr.wikipedia.org/api/rest_v1/page/html";
     this.randomUrlEnglish = "https://en.wikipedia.org/api/rest_v1/page/random/summary";
     this.randomUrlFrench = "https://fr.wikipedia.org/api/rest_v1/page/random/summary";
+    
+    // Load curated article titles for English (top 45k articles)
+    this.curatedTitles = null;
+    this.loadCuratedTitles();
+  }
+  
+  /**
+   * Load curated article titles from JSON file
+   */
+  loadCuratedTitles() {
+    try {
+      const titlesPath = path.join(__dirname, "../../../data/article_titles.json");
+      const titlesData = fs.readFileSync(titlesPath, "utf-8");
+      this.curatedTitles = JSON.parse(titlesData);
+      console.log(`Loaded ${this.curatedTitles.length} curated English article titles`);
+    } catch (error) {
+      console.error("Failed to load curated titles, falling back to Wikipedia API:", error.message);
+      this.curatedTitles = null;
+    }
   }
 
   /**
    * Fetch a random article from Wikipedia
+   * For English: uses curated list of top 45k articles
+   * For French: uses Wikipedia random API
    * @param {string} language - Language code ('en' or 'fr'), defaults to 'en'
    * @returns {Promise<Object>} Article info with title and other metadata
    */
   async fetchRandomArticle(language = 'en') {
     try {
+      // For English, use curated list if available
+      if (language === 'en' && this.curatedTitles && this.curatedTitles.length > 0) {
+        const randomIndex = Math.floor(Math.random() * this.curatedTitles.length);
+        const randomTitle = this.curatedTitles[randomIndex];
+        
+        console.log(`Selected random article from curated list (en): ${randomTitle}`);
+        
+        return {
+          title: randomTitle,
+          description: "High-quality Wikipedia article",
+          extract: ""
+        };
+      }
+      
+      // For French or fallback, use Wikipedia random API
       const randomUrl = language === 'fr' ? this.randomUrlFrench : this.randomUrlEnglish;
       
       console.log(`Fetching random article from Wikipedia API (${language})`);

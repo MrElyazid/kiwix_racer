@@ -3,6 +3,7 @@ data/zim/*.zim
 data/json/*.json
 data/sqlite/*.db
 data/sdow
+data/article_titles.json
 # Keep the scripts directory structure
 !data/scripts/
 
