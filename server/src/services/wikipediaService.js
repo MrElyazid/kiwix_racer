@@ -52,8 +52,6 @@ class WikipediaService {
         const randomIndex = Math.floor(Math.random() * this.curatedTitles.length);
         const randomTitle = this.curatedTitles[randomIndex];
         
-        console.log(`Selected random article from curated list (en): ${randomTitle}`);
-        
         return {
           title: randomTitle,
           description: "High-quality Wikipedia article",
@@ -107,8 +105,6 @@ class WikipediaService {
       });
 
       let html = response.data;
-
-    //   // Fix relative URLs to point to Wikipedia
       const wikiDomain = language === 'fr' ? 'fr.wikipedia.org' : 'en.wikipedia.org';
       
       html = html.replace(/src="\/\//g, 'src="https://');
@@ -124,8 +120,7 @@ class WikipediaService {
       if (error.response && error.response.status === 404) {
         throw new Error("Article not found");
       }
-      //console.error(`Error fetching from Wikipedia: ${error.message}`);
-      throw new Error(`Failed to fetch article from Wikipedia:${error.message}`);
+      throw new Error(`Failed to fetch article from Wikipedia: ${error.message}`);
     }
   }
 }

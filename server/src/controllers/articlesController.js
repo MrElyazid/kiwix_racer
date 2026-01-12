@@ -5,9 +5,6 @@
 
 import wikipediaService from "../services/wikipediaService.js";
 
-/**
- * Get a random Wikipedia article
- */
 export const getRandomArticle = async (req, res) => {
   try {
     const language = req.query.language || 'en';
@@ -19,9 +16,6 @@ export const getRandomArticle = async (req, res) => {
   }
 };
 
-/**
- * Get article content by title
- */
 export const getArticleByTitle = async (req, res) => {
   try {
     const { title } = req.params;
@@ -43,9 +37,6 @@ export const getArticleByTitle = async (req, res) => {
   }
 };
 
-/**
- * Get article content by path from Wikipedia API
- */
 export const getArticleByPath = async (req, res) => {
   try {
     // Use req.path to get the path without query parameters
@@ -60,17 +51,14 @@ export const getArticleByPath = async (req, res) => {
     // Get language from query parameter, default to 'en'
     const language = req.query.lang || 'en';
 
-    console.log(`Fetching article: ${articlePath} from Wikipedia API `);
-
-    // Fetch from Wikipedia API with language parameter
+    console.log(`Fetching article: ${articlePath} from Wikipedia API`);
     
     const html = await wikipediaService.fetchArticleHtml(articlePath, language);
     
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.send(html);
   } catch (error) {
-    // j'ai enleve le articlePath car ca casse le programme quand l'article n'existait pas
-    console.error(`Error fetching : ${error.message}`);
+    console.error(`Error fetching article: ${error.message}`);
     if (error.message === "Article not found") {
       res.status(404).send("Article not found");
     } else {

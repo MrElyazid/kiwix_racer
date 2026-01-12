@@ -21,8 +21,6 @@ export const findPath = async (req, res) => {
       });
     }
 
-    console.log(`Finding path from "${source}" to "${target}"`);
-
     const result = await pathfindingService.findPath(source, target, max_depth);
 
     res.json(result);
@@ -54,8 +52,6 @@ export const buildGraph = async (req, res) => {
         error: "Root article title is required",
       });
     }
-
-    console.log(`Building graph for "${root}"`);
 
     const graph = pathfindingService.buildGraph(
       root,

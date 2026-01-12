@@ -14,7 +14,6 @@ export const useLanguageStore = defineStore('language', {
     setLanguage(lang) {
       this.currentLanguage = lang
       localStorage.setItem('language', lang)
-      console.log(`Language changed to: ${lang}`)
     }
   },
   

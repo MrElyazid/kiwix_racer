@@ -7,15 +7,11 @@ import { findPath } from '../services/pathfindingService.js';
  */
 export function setupGameSocket(io) {
   io.on('connection', (socket) => {
-    console.log(`Player connected: ${socket.id}`);
-
     // Create a new room
     socket.on('create-room', ({ playerName }, callback) => {
       try {
         const { code, room } = multiplayerService.createRoom(socket.id, playerName);
         socket.join(code);
-        
-        console.log(`Room created: ${code} by ${socket.id}`);
         
         callback({ 
           success: true, 
@@ -40,8 +36,6 @@ export function setupGameSocket(io) {
         }
 
         socket.join(roomCode.toUpperCase());
-        
-        console.log(`Player ${socket.id} joined room: ${roomCode}`);
         
         // Notify other players
         socket.to(roomCode.toUpperCase()).emit('player-joined', {

@@ -34,8 +34,6 @@ export function useMultiplayer() {
   // Connect to Socket.IO server
   const connect = () => {
     if (socket.value?.connected) return
-
-    console.log('Connecting to Socket.IO server at:', SERVER_URL)
     
     socket.value = io(SERVER_URL, {
       path: '/socket.io',
@@ -49,12 +47,10 @@ export function useMultiplayer() {
     socket.value.on('connect', () => {
       connected.value = true
       playerId.value = socket.value.id
-      console.log('Connected to server:', socket.value.id)
     })
 
     socket.value.on('disconnect', () => {
       connected.value = false
-      console.log('Disconnected from server')
     })
 
     socket.value.on('connect_error', (err) => {
@@ -74,7 +70,6 @@ export function useMultiplayer() {
     socket.value.on('player-joined', ({ player }) => {
       if (room.value) {
         room.value.players.push(player)
-        console.log('Player joined:', player.name)
       }
     })
 
@@ -82,7 +77,6 @@ export function useMultiplayer() {
     socket.value.on('player-left', ({ playerId: leftPlayerId }) => {
       if (room.value) {
         room.value.players = room.value.players.filter(p => p.id !== leftPlayerId)
-        console.log('Player left:', leftPlayerId)
       }
     })
 
@@ -90,7 +84,6 @@ export function useMultiplayer() {
     socket.value.on('host-changed', ({ newHostId }) => {
       if (room.value) {
         room.value.host = newHostId
-        console.log('New host:', newHostId)
       }
     })
 
@@ -108,7 +101,6 @@ export function useMultiplayer() {
     socket.value.on('settings-updated', ({ settings: newSettings }) => {
       if (room.value) {
         room.value.settings = newSettings
-        console.log('Settings updated:', newSettings)
       }
     })
 
@@ -120,7 +112,6 @@ export function useMultiplayer() {
         room.value.settings.startArticle = startArticle
         room.value.settings.targetArticle = targetArticle
         gameState.value = 'playing'
-        console.log('Game started:', startArticle, '->', targetArticle)
       }
     })
 
@@ -143,7 +134,6 @@ export function useMultiplayer() {
           player.reached = true
           player.clicks = clicks
           player.score = score
-          console.log(`${player.name} reached target!`)
         }
       }
     })
