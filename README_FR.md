@@ -1,6 +1,8 @@
 [README in English](./README.md)
 
-![logo](./client/public/favicon.png)
+<p align="center">
+  <img src="./client/public/logo.png" alt="WikiDash Logo" width="150">
+</p>
 
 # wikiDash :
 
@@ -69,7 +71,7 @@ placez le fichier d'articles téléchargé dedans, et créez un dossier `sdow` d
 - [six degrees of wikipedia](https://github.com/jwngr/sdow)
 - [Un projet similaire](https://wiki-race.com/)
 
-# Notes sur la base de données sdow :
+## Notes sur la base de données sdow :
 
 ## Tables
 
@@ -112,7 +114,7 @@ placez le fichier d'articles téléchargé dedans, et créez un dossier `sdow` d
 3. Tracer en avant vers la cible via targetParents
 4. Concaténer les deux chemins
 
-#### Membres de l'équipe :
+# Membres de l'équipe :
 - Elyazid Essoly
 - Tefinjanahary Maharavo Anicet
 - Baptiste Lheritier

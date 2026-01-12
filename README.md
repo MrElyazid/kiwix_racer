@@ -1,7 +1,9 @@
 
 [README en Francais](./README_FR.md)
 
-![logo](./client/public/favicon.png)
+<p align="center">
+  <img src="./client/public/logo.png" alt="WikiDash Logo" width="150">
+</p>
 
 # wikiDash :
 
@@ -72,7 +74,7 @@ place the downloaded articles file in it, and make a folder `sdow` in which plac
 - [six degrees of wikipedia](https://github.com/jwngr/sdow)
 - [A similar project](https://wiki-race.com/)
 
-# Notes about the sdow database :
+## Notes about the sdow database :
 
 ## Tables
 
@@ -116,7 +118,7 @@ place the downloaded articles file in it, and make a folder `sdow` in which plac
 4. Concatenate both paths
 
 
-#### Team members :
+# Team members :
 - Elyazid Essoly
 - Tefinjanahary Maharavo Anicet
 - Baptiste Lheritier
