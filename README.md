@@ -9,7 +9,7 @@
 
 A wikiracing game and wikipedia visualizer
 
-Visit at :
+Visit at : http://wikidash.ddns.net:5173
 
 ## Features :
 
